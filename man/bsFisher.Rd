@@ -2,88 +2,73 @@
 % Please edit documentation in R/bsFisher.R
 \name{bsFisher}
 \alias{bsFisher}
-\title{Bayesian single-index regression with B-spline link and von Mises-Fisher prior}
+\alias{bsFisher_setup}
+\title{Bayesian Single-Index Regression with B-Spline Link and von Mises-Fisher Prior}
 \usage{
 bsFisher(
-  x,
-  y,
-  prior = list(index = list(direction = NULL, dispersion = 150), link = list(basis =
-    list(df = 21, degree = 2, delta = 0.001), beta = list(mu = NULL, cov = NULL)), sigma2
-    = list(shape = 0.001, rate = 100)),
-  init = list(index = NULL, link = list(beta = NULL), sigma2 = 0.01),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+bsFisher_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response vector/matrix.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{von Mises--Fisher prior for the projection vector \eqn{\theta}.
-\code{direction} is a unit direction vector of the von Mises--Fisher distribution.
-If \code{direction} is \code{NULL}, the estimated vector from projection pursuit regression is assigned.
-\code{dispersion} is the concentration parameter \eqn{c_{\mathrm{prior}} > 0}. (default \code{150})
-}
-\item{\code{link}}{B-spline basis and coefficient of B-spline setup.
-\enumerate{
-\item{\code{basis} For the basis of B-spline, \code{df} is the number of basis functions (default \code{21}), \code{degree} is the spline degree (default \code{2}) and
-\code{delta} is a small jitter for boundary-knot spacing control (default \code{0.001}).}
-\item{\code{beta} For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{mu}, and covariance \code{cov}.
-By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
-}}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 0.001, rate = 100})
-}
-}}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{Initial unit index vector \eqn{\theta}. By default, the vector is ranomly sampled from the von Mises--Fisher prior.}
-\item{\code{link}}{Initial spline coefficients(\code{beta}). By default,
-\eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
-where \eqn{X_{\theta}} is the B-spline basis design matrix.
-}
-\item{\code{sigma2}}{Initial scalar error variance (default \code{0.01}).}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-}}
-
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("Xlin", "linkFunction", "beta")} is monitored for prediction.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- bsFisher(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for monitors1 (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-\item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
@@ -93,20 +78,54 @@ index vector \eqn{\theta} has von Mises–Fisher prior.
 }
 \details{
 \strong{Model} The single–index model uses a \eqn{m}-order polynomial spline with \eqn{k} interior knots as follows:
-\eqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = x_i' \theta, i = 1,\cdots, n}
-and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a = min(t_i, i = 1, \cdots, n) - \delta},
-and \eqn{b = max(t_i, i = 1,\cdots, n) + \delta}.
+\deqn{f(t) = \sum_{j=1}^{m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = X_i' \theta, i = 1,\cdots, n}
+and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficients and \eqn{a_\theta}, \eqn{b_\theta} are boundary knots where \eqn{a_{\theta} = min(t_i, i = 1, \cdots, n) - \delta},
+and \eqn{b_{\theta} = max(t_i, i = 1,\cdots, n) + \delta}.
 
 \strong{Priors}
 \itemize{
-\item von Mises–Fisher prior on the index \eqn{\theta}: direction \code{prior$index$direction}, concentration \code{prior$index$dispersion}.
-\item Inverse-Gamma prior on \eqn{\sigma^2}: \eqn{\sigma^2 \sim \mathrm{IG}(a_\sigma, b_\sigma)}.
-\item Conditional on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients follow
-\eqn{\beta = (\beta_1,\ldots,\beta_K)^\top \sim \mathcal{N}\!\big(\hat{\beta}_{\theta},\, \sigma^2 (X_{\theta}^\top X_{\theta})^{-1}\big)}.
+\item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
+\item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
+normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
+covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
+\item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 }
 
 \strong{Sampling}
-Random walk metropolis algorithm is used for index vector \eqn{\theta}. Given \eqn{\theta}, \eqn{\sigma^2} and \eqn{\beta} are sampled from posterior distribution. Further sampling method is described in Antoniadis et al.(2004).
+Random walk metropolis algorithm is used for index vector \eqn{\theta}. Given \eqn{\theta}, \eqn{\sigma^2} and \eqn{\beta} are sampled from posterior distribution. Further sampling method is described in Antoniadis et al(2004).
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta} (\code{index}).
+\code{index_direction} is a unit direction vector of the von Mises--Fisher distribution.
+By default, the estimated vector from projection pursuit regression is assigned.
+\code{index_dispersion} is the positive concentration parameter. By default, \code{150} is assigned.
+
+\item Link function: B-spline basis and coefficient of B-spline setup.
+\itemize{
+\item \code{basis}: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}),
+\code{link_basis_degree} is the spline degree (default \code{2}) and
+\code{link_basis_delta} is a small jitter for boundary knots spacing control (default \code{0.001}).
+\item \code{beta}: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}.
+By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)} is assigned.
+}
+
+\item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 0.001, sigma2_rate = 100})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+\item Index vector: Initial unit index vector \eqn{\theta}. By default, the vector is randomly sampled from the von Mises--Fisher prior.
+\item Link function: Initial spline coefficients (\code{link_beta}). By default,
+\eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
+where \eqn{X_{\theta}} is the B-spline basis design matrix.
+
+\item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
+}
 }
 \examples{
 \donttest{
@@ -118,16 +137,25 @@ sigma <- 0.5
 X <- matrix(runif(n * d, -1, 1), nrow = n)
 index_vals <- as.vector(X \%*\% theta)
 y <- f(index_vals) + rnorm(n, 0, sigma)
+simdata <- data.frame(x = X, y = y)
+colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
-fit <- bsFisher(X, y)
+fit1 <- bsFisher(y ~ ., data = simdata,
+                 niter = 5000, nburnin = 1000, nchain = 1)
 
 # Split version
-models <- bsFisher(X, y, sampling = FALSE)
+models <- bsFisher_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = models$input$init,
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+                   nchains = 1, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+summary(fit2)
+
+
 }
 
 }

@@ -2,117 +2,109 @@
 % Please edit documentation in R/gpSphere-united.R
 \name{gpSphere}
 \alias{gpSphere}
-\title{Bayesian single-index regression with Gaussian process link and unit sphere prior}
+\alias{gpSphere_setup}
+\title{Bayesian Single-Index Regression with Gaussian Process Link and Unit Sphere Prior}
 \usage{
 gpSphere(
-  x,
-  y,
-  prior = list(index = NULL, link = list(lengthscale = list(shape = 1/8, rate = 1/8), amp
-    = list(a_amp = -1, b_amp = 1)), sigma2 = list(shape = 1, rate = 1)),
-  init = list(index = list(index = NULL), link = list(lengthscale = 0.1, amp = 1), sigma2
-    = 1),
-  sampling = TRUE,
-  fitted = TRUE,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
   method = "FB",
   lowerB = NULL,
   upperB = NULL,
-  monitors2 = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+gpSphere_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  method = "FB",
+  lowerB = NULL,
+  upperB = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response numeric vector/matrix. Other types  are not available.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{Nothing to assign.}
-\item{\code{link}}{
-\enumerate{
-\item{\code{lenghscale}: Prior of length-scale parameter for covariance kernel. Gamma distribution is assigned for \eqn{l}: \eqn{\text{G}(\alpha_l, \beta_l)}
-\code{shape} is shape parameter (default \code{1/8}) and \code{rate} is rate parameter of lengthscale \eqn{l}. (default \code{1/8})}
-\item{\code{amp}: Prior of amplitude parameter for covariance kernel. Log-normal distribution is assigned for \eqn{\eta}: \eqn{\log(\eta) \sim \mathrm{N}(a_\eta, b_\eta)}
-\code{a_amp} is mean (default \code{-1}), and \code{b_amp} is standard deviation (default \code{1})}
-}
-}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An inverse-gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 1, rate = 1})}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-}}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{Initial unit index vector. By default, vector is randomly drawn from normal distribution and standardized.}
-\item{\code{link}}{\code{lenghscale} is initial scalar range parameter. (default: \code{0.1})
-\code{amp} is initial scalar scale parameter. (default: \code{1})
-}
-\item{\code{sigma2}}{Initial scalar error variance. (default: \code{1})}
-}}
-
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return
-prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), posterior fitted values are included in the output.
-Also, if \code{"sampling = FALSE"}, parameters for prediction(\code{c("linkFunction", "Xlin", "lengthscale", "amp")}) is additionally monitored.}
-
-\item{method}{Character, Gp-uniform model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
+\item{method}{Character, \code{gpSphere} model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
 Assign one sampler method. Empirical sampling approach is recommended in high-dimensional data. By default, fully Bayesian approach is assigned.}
 
-\item{lowerB}{Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
+\item{lowerB}{This parameter is only for \code{gpSphere} model. Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
 When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 By default, the lower bounds are \code{-1} for the index vector and \code{-1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.}
 
-\item{upperB}{Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
+\item{upperB}{This parameter is only for \code{gpSphere} model. Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
 When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 By default, the upper bounds are \code{1} for the index vector and \code{1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.}
 
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpSphere(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for primary monitors (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, summary values of in-sample fitted values are included.}
-\item{\code{input}}{List of input values for prior, initial values and execution time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
-Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} where
+Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}, where
 the index \eqn{\theta} lies on the unit sphere, and the link \eqn{f(\cdot)} is represented
 with Gaussian process.
 }
 \details{
-\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
+\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
 Index vector should be length 1.
 
 \strong{Priors}
 \itemize{
-\item Index vector: Uniform prior with \eqn{||\theta|| =1}
-\item Covariance kernel: \eqn{\eta \sim \text{lognormal}(a_\eta, b_\eta)} , \eqn{l \sim \text{G}(\alpha_l, \beta_l)}
-\item Error variance \eqn{\sigma^2}: \eqn{IG(a_\sigma, b_\sigma)}
+\item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
+\item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
+Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_l} and rate parameter \eqn{\beta_l}.
+\item Inverse-Gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 
 }
 
@@ -127,6 +119,36 @@ and \eqn{\sigma^2} are estimated by maximum a posteriori (MAP), and
 In the empirical Gibbs sampler, \eqn{\theta}, \eqn{l}, and \eqn{\eta}
 are estimated by MAP, whereas \eqn{f} and \eqn{\sigma^2} are sampled
 via Gibbs sampling.
+
+For estimation via MAP, effective sample size or potential scale reduction factor is meaningless.
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: Nothing to assign.
+\item Link function:
+\itemize{
+\item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{l}.
+\code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
+\item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
+\code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
+}
+
+\item Error variance (\code{sigma2}): inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 1, sigma2_rate = 1})
+
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+\item Index vector (\code{index}): Initial unit index vector. By default, vector is randomly drawn from normal distribution and standardized.
+\item Link function: \code{link_lengthscale} is initial scalar length-scale parameter. (default: \code{0.1})
+\code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
+\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
+
+}
 }
 \examples{
 \donttest{
@@ -138,18 +160,25 @@ sigma <- 0.5
 X <- matrix(runif(n * d, -1, 1), nrow = n)
 index_vals <- as.vector(X \%*\% theta)
 y <- f(index_vals) + rnorm(n, 0, sigma)
+simdata <- data.frame(x = X, y = y)
+colnames(simdata) <- c(paste0("X", 1:4), "y")
 
-# One-call version
-fit <- gpSphere(X, y, method = "EB")
+# One tool version
+fit1 <- gpSphere(y ~ ., method = "EB", data = simdata,
+                 niter = 1000, nburnin = 100)
 
 # Split version
-model <- gpSphere(X, y, method = "EB", sampling = FALSE)
-Ccompile <- compileModelAndMCMC(model)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = model$input$init,
+models <- gpSphere_setup(y ~ ., method = "EB", data = simdata)
+Ccompile <- compileModelAndMCMC(models)
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
+                    nchains = 1, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+# The estimates computed by MAP - standard error of the esitmate is meaningless.
+summary(fit2)
 }
-
 }
 \references{
 Choi, T., Shi, J. Q., & Wang, B. (2011).

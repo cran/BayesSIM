@@ -2,111 +2,128 @@
 % Please edit documentation in R/gpFisher.R
 \name{gpFisher}
 \alias{gpFisher}
-\title{Bayesian single-index regression with Gaussian process link and von Mises-Fisher prior}
+\alias{gpFisher_setup}
+\title{Bayesian Single-Index Regression with Gaussian Process Link and von Mises-Fisher Prior}
 \usage{
 gpFisher(
-  x,
-  y,
-  prior = list(index = list(direction = NULL, dispersion = 150), link = list(lengthscale
-    = list(shape = 1/8, rate = 1/8), amp = list(a_amp = -1, b_amp = 1)), sigma2 =
-    list(shape = 1, rate = 1)),
-  init = list(index = NULL, link = list(lengthscale = 0.1, amp = 1), sigma2 = 1),
-  sampling = TRUE,
-  fitted = FALSE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+gpFisher_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response numeric vector/matrix. Other types  are not available.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{von Mises--Fisher prior for the projection vector \eqn{\theta}.
-\code{direction} is a unit direction vector of the von Mises--Fisher distribution.
-If \code{direction} is \code{NULL}, the estimated vector from projection pursuit regression is assigned.
-\code{dispersion} is the concentration parameter \eqn{c_{\mathrm{prior}} > 0}. (default \code{150})
-}
-\item{\code{link}}{
-\enumerate{
-\item{\code{lenghscale}: Prior of length-scale parameter for covariance kernel. Gamma distribution is assigned for \eqn{l} (\eqn{\text{G}(\alpha_l, \beta_l))}.
-\code{shape} is shape parameter (default \code{1/8}) and \code{rate} is rate parameter of \code{lenghscale} (default \code{1/8})}
-\item{\code{amp}: Prior of amplitude parameter for covariance kernel. Log-normal distribution is assigned for \eqn{\eta}: \eqn{\log(\eta) \sim \mathrm{N}(a_\eta, b_\eta)}
-\code{a_amp} is mean(default \code{-1}), and \code{b_amp} is standard deviation(default \code{1})}
-}
-}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An inverse-gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 1, rate = 1})}
-}}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{Initial unit index vector \eqn{\theta}. By default, the vector is sampled from the von Mises--Fisher prior.}
-\item{\code{link}}{\code{lenghscale} is initial scalar range parameter. (default: \code{0.1})
-\code{amp} is initial scalar scale parameter. (default: \code{1})}
-\item{\code{sigma2}}{Initial scalar error variance. (default: \code{1})}
-}}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return
-prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), posterior fitted values are included in the output.
-Also, if \code{"sampling = FALSE"}, parameters for prediction(\code{c("linkFunction", "Xlin", "lengthscale", "amp")}) is additionally monitored.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpFisher(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for primary monitors (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, summary values of in-sample fitted values are included.}
-\item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
-Fits a single–index model\eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} where
+Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}, where
 the index \eqn{\theta} lies on the unit sphere with von Mises-Fisher prior, and the link \eqn{f(\cdot)} is represented
 with Gaussian process.
 }
 \details{
-\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
+\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
 Index vector should be length 1.
 
 \strong{Priors}
 \itemize{
-\item von Mises–Fisher prior on the index \eqn{\theta}: direction \code{prior$index$direction}, concentration \code{prior$index$dispersion}.
-\item Covariance kernel: \eqn{\eta \sim \text{lognormal}(a_\eta, b_\eta)} , \eqn{l \sim \text{G}(\alpha_l, \beta_l)}
-\item Error variance \eqn{\sigma^2}: \eqn{IG(a_\sigma, b_\sigma)}.
+\item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
+\item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
+Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_l} and rate parameter \eqn{\beta_l}.
+\item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 
 }
 
 \strong{Sampling} All sampling parameters' samplers are assigned by nimble.
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta} (\code{index}).
+\code{index_direction} is a unit direction vector of the von Mises--Fisher distribution.
+By default, the estimated vector from projection pursuit regression is assigned.
+\code{index_dispersion} is the positive concentration parameter. By default, \code{150} is assigned.
+
+\item Link function:
+\itemize{
+\item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{l}.
+\code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
+\item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
+\code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
+}
+
+\item Error variance (\code{sigma2}): An inverse-gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 1, sigma2_rate = 1})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+\item Index vector (\code{index}): Initial unit index vector \eqn{\theta}. By default, the vector is sampled from the von Mises--Fisher prior.
+\item Link function: \code{link_lengthscale} is initial scalar length-scale parameter. (default: \code{0.1})
+\code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
+\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
+}
 }
 \examples{
 \donttest{
-set.seed(20250818)
+set.seed(123)
 N <- 60; p <- 2
 x1 <- runif(N, -3, 5)
 x2 <- runif(N, -3, 5)
@@ -116,16 +133,22 @@ xlin <- x1*beta1 + x2*beta2
 eta <- 0.1*xlin + sin(0.5*xlin)^2
 y <- rnorm(N, eta, sigma)
 x <- matrix(c(x1, x2), ncol = 2)
+simdata <- data.frame(x = x, y = y)
+colnames(simdata) <- c("X1", "X2", "y")
 
-# One-call version
-fit <- gpFisher(x = x, y = y, nchain = 3, fitted = TRUE)
+# One tool version
+fit1 <- gpFisher(y ~ ., data = simdata, nchain = 1, niter = 1000, nburnin = 100)
 
 # Split version
-models <- gpFisher(x = x, y = y, nchain = 1, sampling = FALSE)
+models <- gpFisher_setup(y ~ ., data = simdata, nchain = 1)
 Ccompile <- compileModelAndMCMC(models)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = models$input$init,
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
+                   nchains = 1, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+summary(fit2)
 }
 
 }

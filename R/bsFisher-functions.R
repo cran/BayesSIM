@@ -58,34 +58,7 @@ besselI_nimble <- nimble::nimbleFunction(
   }
 )
 
-#' von-mises Fisher distribution
-#' @description Density, and random generation for von-mises Fisher distribution.
-#' @param x vector of direction
-#' @param theta vector of direction
-#' @param n number of observations
-#' @param log logical; If TRUE, probabilities p are given as log(p)
-#' @details
-#' - `dvMFnim(x, theta, log)` evaluates the log-density
-#'   \deqn{\log f(x|\theta) = \theta^\top x - \left[\log I_\nu(\kappa) + \log \Gamma(\nu) - (\nu-1)\log(\kappa/2)\right],}
-#'   with \eqn{\nu = p/2}, \eqn{\kappa = \|\theta\|_2}.
-#'
-#' - `rvMFnim(n, theta)` returns one vector on the unit sphere.
-#'   If \eqn{\kappa=0}, it generates a uniform random direction.
-#'
-#'
-#' @returns
-#' - `dvMFnim()` : scalar numeric (density or log-density).
-#' - `rvMFnim()` : numeric vector of length \eqn{p}. To register distribution for nimble, only one vector is generated.
-#'
-#' @references
-#' Wood, Andrew TA. "Simulation of the von Mises Fisher distribution." \emph{Communications in statistics-simulation and computation} 23.1 (1994): 157-164.
-#'
-#' Hornik, K., & Grün, B. (2014). movMF: an R package for fitting mixtures of von Mises-Fisher distributions.
-#' \emph{Journal of Statistical Software}, 58, 1-31.
-#'
-#' @name vMF
-#' @export
-#'
+
 dvMFnim <- nimble::nimbleFunction(
   run = function(x = double(1), theta = double(1), log = integer(0, default = 0)) {
     returnType(double(0))
@@ -109,8 +82,6 @@ dvMFnim <- nimble::nimbleFunction(
 )
 
 
-#' @rdname vMF
-#' @export
 rvMFnim <- nimble::nimbleFunction(
   run = function(n = integer(0), theta = double(1)) {
     returnType(double(1))
@@ -252,39 +223,22 @@ gvcCV <- nimble::nimbleFunction(
 
 
 
-#' Design matrix of \code{bsFisher(), bsPolar(), bsSpike()}
-#' @description The \pkg{nimble} function that makes \eqn{X'\theta} to B-spline basis design matrix.
-#' @details
-#' The function determines internal knots based on quantiles of \code{Xlin}
-#' and extends the boundary knots by a small \code{delta}.
-#' The resulting basis matrix can be directly used as an input design matrix
-#' for spline-based link functions.
-#'
-#' This function is intended for internal development purposes and is not designed for direct use by end users.
-#'
-#' @param Xlin A numeric vector representing the linear predictor values.
-#' @param df An integer scalar specifying the total number of basis functions (degrees of freedom).
-#' @param degree An integer scalar giving the polynomial degree of the B-spline.
-#' @param delta A numeric scalar that extends the lower and upper boundary knots
-#'   by \code{delta} to reduce boundary effects.
-#'
-#' @return
-#' A numeric matrix containing the B-spline basis expansion
-#' of \code{Xlin} with \code{df} columns.
-#'
-#' @seealso \code{\link{bsFisher}}, \code{\link{bsPolar}}, \code{\link{bsSpike}}, \code{\link{predict.bsimSpline}}
-#'
-#' @export
+# Design Matrix of bsFisher(), bsPolar(), bsSpike()
 transX_fisher <- nimble::nimbleFunction(
   run = function(Xlin = double(1), df = integer(0), degree = integer(0), delta = double(0)){
     returnType(double(2))
     n_internal_knots <- df - degree
-    prob_vec <- nimSeq(0, 1, length.out = n_internal_knots+2)[2:(n_internal_knots+1)]
+    idxmax <- n_internal_knots + 1
+    # prob_vec <- nimSeq(0, 1, length.out = n_internal_knots+2)[2:idxmax]
+
+    seq_full <- nimSeq(0, 1, length.out = n_internal_knots + 2)
+    prob_vec <- seq_full[2:idxmax]
     internal_knots <- quantile_nimble(Xlin, prob_vec)
 
     X <- bsBasis(Xlin, df = df, degree = degree,
                  knots = internal_knots,
                  boundary_knots = c(min(Xlin)-delta, max(Xlin)+delta))
+    #
     # N <- nimDim(X)[1]
     # result <- matrix(X, nrow = N, ncol = df)
     return(X)
@@ -337,37 +291,46 @@ pred_bsplineFisher <- nimbleFunction(
   run = function(newdata = double(2), indexSample = double(2),
                  knotsSample = double(2), XlinSample = double(2),
                  betaSample = double(2), sigma2_samples = double(1), nsamp = double(0),
-                 df = double(0), degree = double(0), delta = double(0)){
+                 df = double(0), degree = double(0), delta = double(0),
+                 prediction = integer(0)){
+    # prediction = 1: latent, prediction = 2: response
     returnType(double(2))
     new_ncol <- nimDim(newdata)[1]
     testPred <- nimMatrix(0, nrow = nsamp, ncol = new_ncol)
 
-    # samples over boundary knots
     for (i in 1:nsamp){
-      sampleZ <- newdata %*% matrix(indexSample[i, ], ncol = 1)
+      sampleZ <- newdata %*% matrix(indexSample[i, ], ncol = 1) # linear pred
       Xmat <- bsBasis(sampleZ[,1], df = df,
                       degree = degree, knots = knotsSample[i,],
                       boundary_knots = c(min(XlinSample[i,])-delta,
                                          max(XlinSample[i,])+delta))
       linkPred <- Xmat %*% betaSample[i,]
-      predsigma <- chol(diag(rep(sigma2_samples[i], new_ncol)))
-      pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
-      idxmin <- (sampleZ[,1] < (min(XlinSample[i,]) - delta))
-      idxmax <- (sampleZ[,1] > (max(XlinSample[i,]) + delta))
 
-      if (sum(idxmin) != 0){
-        minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
-        predmin <- min(pred[1, minVal_idx])
-        pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
+      if (prediction == 1){ # latent
+        testPred[i,] <- linkPred[,1]
+
+      } else if (prediction == 2){
+        predsigma <- chol(diag(rep(sigma2_samples[i], new_ncol)))
+        pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
+
+        # computation for data over boundaries: substitute to last values
+        idxmin <- (sampleZ[,1] < (min(XlinSample[i,]) - delta))
+        idxmax <- (sampleZ[,1] > (max(XlinSample[i,]) + delta))
+
+        if (sum(idxmin) != 0){
+          minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
+          predmin <- min(pred[1, minVal_idx])
+          pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
+        }
+
+        if (sum(idxmax) != 0){
+          maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
+          predmax <- max(pred[1, maxVal_idx])
+          pred[1, idxmax] <- nimRep(predmax, sum(idxmax))
+        }
+
+        testPred[i,] <- pred[1,]
       }
-
-      if (sum(idxmax) != 0){
-        maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
-        predmax <- max(pred[1, maxVal_idx])
-        pred[1, idxmax] <- nimRep(predmax, sum(idxmax))
-      }
-
-      testPred[i,] <- pred[1,]
 
     }
     return(testPred)

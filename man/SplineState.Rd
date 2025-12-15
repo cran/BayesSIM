@@ -3,7 +3,7 @@
 \docType{data}
 \name{SplineState}
 \alias{SplineState}
-\title{Additional functions for spline}
+\title{Additional Functions for Spline}
 \format{
 An object of class \code{list} of length 1.
 }
@@ -11,6 +11,6 @@ An object of class \code{list} of length 1.
 SplineState
 }
 \description{
-Additional functions for spline
+Additional Functions for Spline
 }
 \keyword{datasets}

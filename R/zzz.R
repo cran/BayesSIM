@@ -2,46 +2,23 @@
 #' @keywords internal
 "_PACKAGE"
 .onLoad <- function(lib, pkg) {
-  requireNamespace("nimble", quietly = TRUE)
-  requireNamespace("ggplot2", quietly = TRUE)
+  loadNamespace("nimble")
 }
 .onAttach <- function(libname, pkgname) {
   # ns <- asNamespace(pkgname)
   # if (!identical(parent.env(.nimble_env), ns)) {
   #   parent.env(.nimble_env) <- ns
   # }
-  packageStartupMessage("Loading BayesSIM Registering multiple variants of the following distributions:\n ",
-                        "dvMFnim", ", KnotsSimple", ", unitSphere.\n")
+
+  # suppressPackageStartupMessages({
+  #   require("nimble", quietly = TRUE, character.only = TRUE)
+  # })
+
+  packageStartupMessage("Loading BayesSIM...\n")
 
   # Register the distributions explicitly for two reasons:
   # 1. Avoid message to user about automatic registrations upon first use in a nimbleModel
   # 2. Establish default len = 0 via reparameterization mechanism.
-  suppressMessages({
-    nimble::registerDistributions(list(
-      dvMFnim = list(
-        BUGSdist = "dvMFnim(theta)",
-        types    = c("value = double(1)", "theta = double(1)"),
-        discrete = FALSE
-      )
-    ), verbose = FALSE)
-
-    nimble::registerDistributions(list(
-      dKnotsSimple = list(
-        BUGSdist = "dKnotsSimple(a, b, k, alpha)",
-        types = c("value = double(1)", "a = double(0)", "b = double(0)", "k = double(0)",
-                  "alpha = double(1)"),
-        discrete = FALSE
-      )
-    ), verbose = FALSE)
-
-    nimble::registerDistributions(list(
-      dunitSphere = list(
-        BUGSdist     = "dunitSphere(dim)",
-        types        = c("value = double(1)",
-                         "dim   = double(0)"),
-        discrete     = FALSE
-      )
-    ), verbose = FALSE)
 
     # # aa_bspline_ver3
     # .fns <- c(
@@ -93,6 +70,6 @@
     # list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
     #
 
-    })}
+    }
 
 

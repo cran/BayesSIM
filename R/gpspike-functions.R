@@ -1,32 +1,4 @@
 
-#' Covariance kernel with squared-exponential and unit nugget for \code{gpSpike()}
-#'
-#' @description
-#' A \pkg{nimble} function that constructs a covariance matrix on the \eqn{t = X'\theta}
-#'  using a squared–exponential Gaussian kernel scaled by
-#' \eqn{\lambda^{-1}}, with an added unit nugget on the diagonal.
-#' Covariance matrix is \eqn{I + K_{ij}} where \eqn{K_{ij} = \lambda^{-1}\exp\{-(\mathrm{t}_i - \mathrm{t}_j)^2\}} for \eqn{i, j = 1, \cdots, n}.
-#'
-#' @details
-#' The off-diagonal structure follows the squared–exponential kernel, producing
-#' rapidly decaying correlations as the squared distance grows. The matrix is
-#' filled in a symmetric manner and then a unit nugget \eqn{I} is added to
-#' the diagonal. The parameter \code{invlambda} controls the overall signal
-#' scale of the kernel component. If a different nugget is desired, adjust externally.
-#'
-#' @param vec Numeric vector of input locations. \eqn{t = X'\theta} is the main input value for the single-index model.
-#' @param invlambda Non-negative numeric scalar scaling the kernel amplitude.
-#'   Larger values increase both diagonal and off-diagonal
-#'   entries proportionally.
-#'
-#' @return
-#' A numeric \eqn{n \times n} covariance matrix with entries \eqn{K_{ij} = \lambda^{-1}\,\exp\{-(\mathrm{t}_i - \mathrm{t}_j)^2\}}
-#' for \eqn{i \ne j}, and \eqn{K_{ii} = \lambda^{-1} + 1} where \eqn{i, j = 1, \cdots, n}.
-#'
-#' @seealso
-#' \code{\link{gpSpike}}, \code{\link{predict.bsimGp}}
-#'
-#' @export
 # expcov: I + lambda^(-1)*K
 expcov_gpSpike <- nimbleFunction(
   run = function(vec = double(1), invlambda= double(0)){
@@ -371,7 +343,9 @@ initfunction_gpSpike <- function(x, y, p,
 
   return(list(pi = init_pi, nu = init_nu,
               index_raw = init_index,
-              indexstar = init_index, Xlin = init_Xlin,
+              indexstar = init_index,
+              index = init_index,
+              Xlin = init_Xlin,
               Ki = init_Ki, invlambda = init_invlambda,
               sigma2 = init_sigma2, cov = init_cov))
 }
@@ -382,7 +356,7 @@ pred_gpSpike <- nimbleFunction(
   run = function(newdata = double(2), nsamp = integer(0), y = double(1),
                  indexSample = double(2),
                  XlinSample = double(2), sigma2_samples = double(1),
-                 invlambdaSample = double(1)){
+                 invlambdaSample = double(1), prediction = integer(0)){
     returnType(double(2))
 
     new_ncol <- nimDim(newdata)[1]
@@ -409,10 +383,18 @@ pred_gpSpike <- nimbleFunction(
       Sigcov <- cov_new_new - cov_new_ori %*% midMatrix %*%  t(cov_new_ori)
 
       # 4. Sampling
-      predcov <- Sigcov * currSigma + diag(rep(currSigma, new_ncol))
-      cholpredcov <- chol(predcov)
-      testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
-                                    prec_param  = FALSE))
+      if (prediction == 1){ # latent
+        cholpredcov <- chol(Sigcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      } else{ # response
+        predcov <- Sigcov * currSigma + diag(rep(currSigma, new_ncol))
+        cholpredcov <- chol(predcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      }
+
+
     }
     return(testPred)
   }

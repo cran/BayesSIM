@@ -1,82 +1,74 @@
-#' Bayesian single-index regression with Gaussian process link and one-to-one polar transformation
-#' @name gpPolar
+#' Bayesian Single-Index Regression with Gaussian Process Link and One-to-One Polar Transformation
 #'
 #' @description
-#' Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} where
+#' Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}, where
 #' the index \eqn{\theta} is specified and computed via a one-to-one polar
-#' transformation, and the link \eqn{f(\cdot)} is represented with a Gaussian
-#' process.
-#'
-#' @param x Numeric data.frame/matrix of predictors. Each row is an observation.
-#' @param y Numeric response numeric vector/matrix. Other types  are not available.
-#'
-#' @param prior Optional named list of prior settings with sublists:
-#' \describe{
-#' \item{\code{index}}{ \code{psi} is polar angle and rescaled Beta distribution on \eqn{[0, \pi]} is assigned.
-#'     Only shape parameter \code{alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
-#'     By default, the shape parameter for each element of the polar vector is set to \code{5000}.}
-#'
-#' \item{\code{link}}{{Prior for the smoothness parameter \code{kappa} in the Gaussian process kernel: Prior for \eqn{\kappa} is discrete uniform of equally spaced grid points
-#'     in \eqn{[\kappa_{\text{min}}, \kappa_{\text{max}}}].
-#'      \code{min_kappa} is minimum value of kappa (default \code{0.5}), \code{max_kappa} is maximum value of kappa (default \code{4}),
-#'      and \code{grid.width} is space (default \code{0.1}).}}
-#' \item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-#'         where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-#'         (default \code{shape = 2, rate = 0.01})}
-#'
-#'   }
-#' @param init Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-#' \describe{
-#'      \item{\code{index}}{Initial vector of polar angle \code{psi} with \eqn{p-1} dimension. Each element of angle is between 0 and \eqn{\pi}.}
-#'      \item{\code{link}}{Initial scalar scale parameter of covariance kernel \code{kappa}. (default: \code{2})}
-#'      \item{\code{sigma2}}{Initial scalar error variance. (default: \code{0.01})}
-#' }
-#'
-#' @param sampling Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.
-#' @param fitted Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("linkFunction", "kappa", "Xlin")} is monitored for prediction.
-#' @param monitors2 Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpPolar(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.
-#' @param niter Integer. Total MCMC iterations (default \code{10000}).
-#' @param nburnin Integer. Burn-in iterations (default \code{1000}).
-#' @param thin Integer. Thinning for monitors1 (default \code{1}).
-#' @param thin2 Integer. Optional thinning for \code{monitors2} (default \code{1}).
-#' @param nchain Integer. Number of MCMC chains (default \code{1}).
-#' @param setSeed Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.
+#' transformation, and the link \eqn{f(\cdot)} is represented with a Gaussian process.
+#' @inheritParams bsFisher
 #'
 #' @details
 #' \strong{Model} The single–index model is specified as \eqn{Y_i = f(X_i'{\theta}) + \epsilon_i},
 #' where the index vector \eqn{\theta} lies on the unit sphere with (\eqn{\|\theta\|_2=1}) with non-zero first component
 #' to ensure identifiability and is parameterized via a one-to-one polar transformation with angle \eqn{\psi_1,...,\psi_{p-1}}.
+#'
+#' The mapping is
+#' \deqn{
+#' \begin{aligned}
+#' \theta_1 &= \sin(\psi_1),\\
+#' \theta_i &= \Big(\prod_{j=1}^{i-1}\cos(\psi_j)\Big)\sin(\psi_i), \quad i=2,\dots,p-1,\\
+#' \theta_p &= \prod_{j=1}^{p-1}\cos(\psi_j).
+#' \end{aligned}
+#' }
+#' The vector is then scaled to unit length.
+#'
 #' Sampling is  performed on the angular parameters \eqn{\theta} defining
 #' the index vector. The link function \eqn{f(\cdot)} is modeled by a Gaussian process
 #' prior with zero mean and an Ornstein–Uhlenbeck (OU) covariance kernel
-#' \eqn{\exp(-\kappa |t_i - t_j|), i, j = 1,\ldots, N}, where \eqn{\kappa} is a bandwidth (smoothness)
-#' parameter and \eqn{t_i, t_j} is index value(\eqn{t_i = X_i'\theta}).
+#' \eqn{\exp(-\kappa \cdot |t_i - t_j|), i, j = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
+#' parameter and \eqn{t_i, t_j} is index value (\eqn{t_i = X_i'\theta}).
 
 #'
 #' \strong{Priors}
 #' \itemize{
-#'   \item Index vector: Uniform prior on the unit sphere (\eqn{\|\theta\|_2=1}).
-#'   \item Bandwidth parameter \eqn{\kappa}: discrete uniform prior over a fixed grid.
-#'   \item Error variance \eqn{\sigma^2}: Inverse–Gamma prior.
+#'   \item \eqn{\psi} is \eqn{p-1} dimension of polar angle of index vector and re-scaled Beta distribution on \eqn{[0, \pi]} is assigned for prior.
+#'   \item Prior for \eqn{\kappa} (bandwidth parameter) is discrete uniform of equally spaced grid points in \eqn{[\kappa_{\text{min}}, \kappa_{\text{max}}}].
+#'   \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 #'
 #' }
 #'
-#' \strong{Sampling} For \code{gpPolar()}, \eqn{\theta} is sampled by Metropolis-Hastings and updated with \eqn{f},
+#' \strong{Sampling} For \code{gpPolar}, \eqn{\theta} is sampled by Metropolis-Hastings and updated with \eqn{f},
 #' \eqn{\kappa} is chosen by grid search method that maximizes likelihood,
 #' \eqn{\sigma^2} are sampled from their full conditional
 #' distributions using Gibbs sampling.
-#' Since \eqn{\kappa} is sampled by grid search, more than 5 dimension of variables \code{gpPolarHigh()} is recommended.
-#' For \code{gpPolarHigh()}, all sampling parameters' samplers are assigned by nimble.
+#' Since \eqn{\kappa} is sampled by grid search, more than 5 dimension of variables \code{gpPolarHigh} is recommended.
+#' For \code{gpPolarHigh}, all sampling parameters' samplers are assigned by nimble.
 #'
+#' \strong{Prior hyper-parameters}
+#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \enumerate{
+#' \item Index vector: Only shape parameter \code{index_psi_alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
+#'     By default, the shape parameter for each element of the polar vector is set to \code{5000}.
 #'
-#' @return A \code{list} typically containing:
-#' \describe{
-#'   \item{\code{model}}{Nimble model}
-#'   \item{\code{sampler}}{Nimble sampler}
-#'   \item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-#'   \item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-#'   \item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+#' \item Link function:
+#'      \code{link_kappa_min} is minimum value of kappa (default \code{0.5}), \code{link_kappa_max} is maximum value of kappa (default \code{4}),
+#'      and \code{link_kappa_grid_width} is space (default \code{0.1}).
+#' \item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+#'         (default \code{sigma2_shape = 2, sigma2_rate = 0.01})
 #' }
+#'
+#' \strong{Initial values}
+#' These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+#' \enumerate{
+#'
+#' \item Index vector: Initial vector of polar angle \code{index_psi} with \eqn{p-1} dimension. Each element of angle is between 0 and \eqn{\pi}.
+#'      \item Link function: Initial scalar scale parameter of covariance kernel \code{link_kappa}. (default: \code{2})
+#'      \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
+#' }
+#'
+#'
+#'
+#' @inherit bsFisher return
 #'
 #' @examples
 #' \donttest{
@@ -99,51 +91,83 @@
 #' f_all <- f
 #' x_all <- X
 #' y_all <- y
-#' data_frame <- cbind(x_all, y, f)
-#' colnames(data_frame) = c('x1', 'x2', 'x3', 'y','f')
+#' simdata <- cbind(x_all, y, f)
+#' simdata <- as.data.frame(simdata)
+#' colnames(simdata) = c('x1', 'x2', 'x3', 'y','f')
 #'
-#' # One-call version
-#' fit1 <- gpPolar(X, y)
-#' fit2 <- gpPolarHigh(X, y)
+#' # One tool version
+#' fit1 <- gpPolar(y ~ x1 + x2 + x3, data = simdata,
+#'                 niter = 5000, nburnin = 1000, nchain = 1)
+#' fit2 <- gpPolarHigh(y ~ x1 + x2 + x3, data = simdata,
+#'                     niter = 5000, nburnin = 1000, nchain = 1)
 #'
 #' # Split version
-#' models1 <- gpPolar(X, y, sampling = FALSE)
-#' models2 <- gpPolarHigh(X, y, sampling = FALSE)
+#' models1 <- gpPolar_setup(y ~ x1 + x2 + x3, data = simdata)
+#' models2 <- gpPolarHigh_setup(y ~ x1 + x2 + x3, data = simdata)
 #' Ccompile1 <- compileModelAndMCMC(models1)
 #' Ccompile2 <- compileModelAndMCMC(models2)
-#' mcmc.out1 <- runMCMC(Ccompile1$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-#'                     nchains = 1, setSeed = TRUE, init = models1$input$init,
+#' sampler1 <- get_sampler(Ccompile1)
+#' sampler2 <- get_sampler(Ccompile2)
+#' initList1 <- getInit(models1)
+#' initList2 <- getInit(models2)
+#' mcmc.out1 <- runMCMC(sampler1, niter = 5000, nburnin = 1000, thin = 1,
+#'                     nchains = 1, setSeed = TRUE, init = initList1,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' mcmc.out2 <- runMCMC(Ccompile2$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-#'                     nchains = 1, setSeed = TRUE, init = models2$input$init,
+#' mcmc.out2 <- runMCMC(sampler2, niter = 5000, nburnin = 1000, thin = 1,
+#'                     nchains = 1, setSeed = TRUE, init = initList2,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' fit1_split <- as_bsim(models1, mcmc.out1)
+#' fit2_split <- as_bsim(models2, mcmc.out2)
 #' }
 #'
 #' @references
 #' Dhara, K., Lipsitz, S., Pati, D., & Sinha, D. (2019). A new Bayesian single index model with or without covariates missing at random.
 #' \emph{Bayesian analysis}, 15(3), 759.
 #'
-#'
+#' @name gpPolar
 #' @export
+gpPolar <- function(formula, data,
+                   prior = NULL,
+                   init = NULL,
+                   monitors = NULL, niter = 10000, nburnin=1000,
+                   thin = 1, nchain = 1, setSeed = FALSE){
 
-gpPolar <- function(x, y,
-                    prior = list(index = list(psi = list(alpha = NULL)),
-                                 link = list(kappa = list(min_kappa = 0.5, max_kappa = 4, grid.width = 0.1)),
-                                 sigma2 = list(shape = 2, rate = 0.01)),
-                    init = list(index = list(psi = NULL),
-                                 link = list(kappa = 2),
-                                 sigma2 = 0.01),
-                    sampling = TRUE, fitted = TRUE,
-                    monitors2 = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, thin2 = NULL, nchain = 1, setSeed = FALSE
-                    ){
+  return(gpPolar.default(formula = formula, data = data,
+                          prior = prior,
+                          init = init,
+                          sampling = TRUE, monitors = monitors,
+                         niter = niter, nburnin=nburnin,
+                         thin = thin, nchain = nchain, setSeed = setSeed))
+}
+
+#' @rdname gpPolar
+#' @export
+gpPolar_setup <- function(formula, data,
+                          prior = NULL,
+                          init = NULL,
+                          monitors = NULL, niter = 10000, nburnin=1000,
+                          thin = 1, nchain = 1, setSeed = FALSE){
+  return(gpPolar.default(formula = formula, data = data,
+                         prior = prior,
+                         init = init,
+                         sampling = FALSE, monitors = monitors,
+                         niter = niter, nburnin=nburnin,
+                         thin = thin, nchain = nchain, setSeed = setSeed))
+}
+
+gpPolar.default <- function(formula, data,
+                    prior = NULL,
+                    init = NULL,
+                    sampling = TRUE,
+                    monitors = NULL, niter = 10000, nburnin=1000,
+                    thin = 1, nchain = 1, setSeed = FALSE){
 
   start1 <- Sys.time()
   sigma2 <- 0; psi <- 0
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
-    sampling, fitted, niter, nburnin, thin, thin2, nchain,
+    sampling, niter, nburnin, thin, nchain,
     prior, init, "polar", "gp"
   )
   prior <- checkOutput$priorlist_final
@@ -176,20 +200,47 @@ gpPolar <- function(x, y,
 
 
 
-  # check data dimension
-  if (!is.matrix(x) & !is.data.frame(x)){stop("x is not matrix/data.frame.")}
-  if (!is.vector(y) & !is.matrix(y)){stop("y is not vector or matrix.")}
-  if (is.matrix(y)){
-    if ((ncol(y) != 1)){
-      stop("y should be scalar vector or matrix.")
+  # data
+  if (!is.data.frame(data)){
+    stop("data should be an data.frame.")
+  }
+
+  Call <- match.call()
+  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+  if (indx[1] == 0L)
+    stop("a 'formula' argument is required")
+  temp <- Call[c(1L,indx)]
+  temp[[1L]] <- quote(stats::model.frame)
+  m <- eval.parent(temp)
+  Terms <- attr(m,"terms")
+  formula <- as.character(formula)
+  response.name <- formula[2]
+  data.name <- strsplit(formula[3]," \\+ ")[[1]]
+  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+  if(data.name[1]=="."){
+    tot.name <- response.name
+  } else{
+    tot.name <- c(response.name ,data.name)
+  }
+  if(!int.flag){
+    stop("BayesSIM cannot treat interaction terms")
+  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+           length(tot.name)){
+    stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                           tot.name))[-c(1:ncol(data))]],collapse=","),
+               " is/are not in your data"))
+  }else{
+    origY <- data[ ,response.name]
+    if(data.name[1]=="."){
+      origX <- data[,colnames(data) != response.name]
+    }else {
+      origX <- data[ ,data.name,drop=FALSE]
     }
   }
-  X <- as.matrix(x)
-  Y <- matrix(y, ncol = 1)
 
-  if (nrow(X) != nrow(Y)){
-    stop("x and y have different dimension.")
-  }
+  # X = origX, Y = origY
+  X <- as.matrix(origX)
+  Y <- as.matrix(origY)
 
   # data dimension
   N <- length(Y)
@@ -245,22 +296,22 @@ gpPolar <- function(x, y,
   }
 
   # kappa
-  if (is.null(prior$link$kappa$min_kappa)||length(prior$link$kappa$min_kappa) >= 2 || prior$link$kappa$min_kappa < 0){
-    stop("Prior kappa (min_kappa) has incorrect value.")
+  if (is.null(prior$link$kappa$min)||length(prior$link$kappa$min) >= 2 || prior$link$kappa$min < 0){
+    stop("Prior kappa (min) has incorrect value.")
   } else{
-    kappa_min <- prior$link$kappa$min_kappa
+    kappa_min <- prior$link$kappa$min
   }
 
-  if (is.null(prior$link$kappa$max_kappa)||length(prior$link$kappa$max_kappa) >= 2 || prior$link$kappa$max_kappa < 0){
-    stop("Prior kappa (max_kappa) has incorrect value.")
+  if (is.null(prior$link$kappa$max)||length(prior$link$kappa$max) >= 2 || prior$link$kappa$max < 0){
+    stop("Prior kappa (max) has incorrect value.")
   } else{
-    kappa_max <- prior$link$kappa$max_kappa
+    kappa_max <- prior$link$kappa$max
   }
 
-  if (is.null(prior$link$kappa$grid.width)||length(prior$link$kappa$grid.width) >= 2 || prior$link$kappa$grid.width < 0){
-    stop("Prior kappa (grid.width) has incorrect value.")
+  if (is.null(prior$link$kappa$grid_width)||length(prior$link$kappa$grid_width) >= 2 || prior$link$kappa$grid_width < 0){
+    stop("Prior kappa (grid_width) has incorrect value.")
   } else{
-    kappa_grid_width <- prior$link$kappa$grid.width
+    kappa_grid_width <- prior$link$kappa$grid_width
   }
 
   # Initialize
@@ -321,19 +372,10 @@ gpPolar <- function(x, y,
   # Assign samplers
   message("Assign samplers")
   # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
-  monitorsList <- c("index", "sigma2")
-  if (fitted){
-    monitorsList <- c(monitorsList, "linkFunction", "kappa", "Xlin")
-  }
-  if (is.null(monitors2)){
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList,
-                              print = FALSE))
-  } else{
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList, monitors2 = monitors2,
-                              print = FALSE))
-  }
+  monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
+  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                             monitors = monitorsList,
+                                             print = FALSE))
 
 
   mcmcConf$removeSamplers(c("sigma2"))
@@ -353,144 +395,90 @@ gpPolar <- function(x, y,
   mcmc1 <- buildMCMC(mcmcConf)
   end1 <- Sys.time()
 
+
   if (!sampling){
+    samples <- NULL
     mcmc.out <- NULL
-    fittedResult <- NULL
-    sampMCMC <- NULL
 
   } else{
     # Compile
+    start2 <- Sys.time()
     message("Compile Model")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
     message("Compile MCMC")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
-                           project = simpleModel,
-                           resetFunctions = TRUE))
+                                            project = simpleModel,
+                                            resetFunctions = TRUE))
+    end2 <- Sys.time()
 
     # Sampling
-    start2 <- Sys.time()
     message("Run MCMC")
-    mcmc.out <- NULL
     if (setSeed == FALSE){
       seedNum <- setSeed
     }
-    if (is.null(monitors2)){
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin,
-                          nchains = nchain, setSeed = seedNum, inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    } else{
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin, thin2 = thin2,
-                          nchains = nchain, setSeed = seedNum,
-                          inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    }
+    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                        thin = thin,
+                        nchains = nchain, setSeed = seedNum, inits = inits_list,
+                        summary = FALSE, samplesAsCodaMCMC = TRUE)
     # output
-    samples <- NULL
-    sampMCMC <- mcmc.out
-    # if (enableWAIC){
-    #   sampMCMC <- mcmc.out$samples
-    # } else{
-    #   sampMCMC <- mcmc.out
-    # }
     if (nchain > 1){
       for (i in 1:nchain){
         samples <- rbind(samples, mcmc.out[[i]])
       }
-    } else if (nchain == 1){
+    } else{
       samples <- mcmc.out
     }
-    end2 <- Sys.time()
-
-    start3 <- Sys.time()
-    if (fitted){ # posterior fitted value output (mean, median, sd)
-      message("Compute posterior fitted value")
-
-
-      # namesBeta <- paste0("theta", 1:p)
-      namesLink <- paste0("linkFunction[", 1:N, "]")
-      namesSigma <- "sigma2"
-      LinkFunction_samples <- samples[, namesLink]
-      sigma2_samples <- samples[, namesSigma]
-      n <- nrow(LinkFunction_samples)
-      p <- ncol(LinkFunction_samples)
-
-      message("Compile function..")
-      suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
-      message("Computing predicted value..")
-      fittedValue <- cpred_fitted(LinkFunction_samples,
-                                  sigma2_samples)
-      fittedResult <- fittedValue
-
-    } else{
-      fittedResult <- NULL
-    }
   }
-  end3 <- Sys.time()
 
   ## Input options
   if (!sampling){
     time <- NULL
-  } else if (!fitted){
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    time <- list(samp = samp_time)
   } else{
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    fitted_time <- difftime(end3, start3, units = "secs")
-    time <- list(samp = samp_time, fitted = fitted_time)
+    time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
   }
 
-  inputOptions <- list(data = list(x = X, y = Y),
+  # results ---------------------------------------------------------------------
+  #Model point estimation
+  modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
                        prior = list(index = list(psi = list(alpha = psi_c)),
-                                    link = list(kappa = list(min_kappa = kappa_min, max_kappa = kappa_max,
-                                                             grid.width = kappa_grid_width)),
+                                    link = list(kappa = list(min = kappa_min, max = kappa_max,
+                                                             grid_width = kappa_grid_width)),
                                     sigma2 = list(shape = sigma2_shape, rate = sigma2_rate)),
-                       # initial value for MCMC
-                       init = inits_list,
+                       samplingOptions = list(sampling = sampling,
+                                              monitors = monitors, niter = niter,
+                                              nburnin = nburnin, thin = thin,
+                                              nchain = nchain, setSeed = setSeed),
+                       init = inits_list, # initial value for MCMC
                        time = time)
 
 
+  if (sampling){
+    out <- list(coefficients = modelESTLIST$coefficients,
+                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                residuals = modelESTLIST$residuals,
+                fitted.values = modelESTLIST$fitted.values,
+                linear.predictors = modelESTLIST$linear.predictors,
+                gof = modelESTLIST$gof,
+                samples = mcmc.out, # return of runMCMC
+                input = inputOptions,
+                defModel = simpleModel, defSampler = mcmc1,
+                modelName = "gpPolar")
 
-  out <- list(model = simpleModel, sampler = mcmc1, sampling = sampMCMC,
-              fitted = fittedResult, input = inputOptions,
-              modelName = "gpPolar")
-  class(out) = "bsimGp"
+    class(out) = "bsim"
+
+
+  } else{
+    out <- list(input = inputOptions,
+                defModel = simpleModel,
+                defSampler = mcmc1,
+                modelName = "gpPolar")
+
+    class(out) = "bsimSetup"
+
+  }
   return(out)
+
 }
 
-
-# Operation
-# library(MASS)
-# N = 100    # Sample Size
-# p = 3
-# mu=c(0,0,0)
-# rho=0
-# Cx<-rbind(c(1,rho,rho), c(rho,1,rho), c(rho, rho,1))
-# x<-mvrnorm(n = N, mu=mu, Sigma=Cx, tol=1e-8)
-# alpha <- c(1,1,1)
-# alpha <- alpha/sqrt(sum(alpha^2))
-# z <- matrix(0,N)
-# z <- x %*% alpha
-# z <- z[,1]
-# sigma <- .3
-# f <- exp(z)
-# y <- f + rnorm(N,0,sd=sigma) # adding noise
-# y <- y-mean(y)
-#
-# f_all <- f
-# x_all <- x
-# z_all <- z
-# y_all <- y
-# data_frame <- cbind(x_all, y, f)
-# colnames(data_frame) = c('x1', 'x2', 'x3', 'y','f')
-#
-# # One tool version
-# modelPolar <- gpPolar(x, y, fitted = TRUE)
-# # #
-# # Split version
-# models <- gpPolar(x, y, sampling = FALSE)
-# Ccompile <- compileModelAndMCMC(models)
-# mcmc.out <- runMCMC(Ccompile$mcmc, niter = 10000, nburnin = 2000, thin = 1,
-#                     nchains = 1, setSeed = TRUE,
-#                     summary = TRUE, samplesAsCodaMCMC = TRUE)

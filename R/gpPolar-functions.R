@@ -1,85 +1,3 @@
-# Same quickSortOrderIndexOnly, nimOrder, nimSort in a_common.R due to NOTES
-# that those functions cannot be defined
-# quickSortOrderIndexOnly <- nimble::nimbleFunction(
-#   run = function(x = double(1), decreasing = logical(0, default = FALSE)) {
-#     n <- length(x)
-#     idx <- integer(n)
-#     for(i in 1:n) idx[i] <- i
-#
-#     stackLeft <- integer(n)
-#     stackRight <- integer(n)
-#     top <- 1
-#     stackLeft[top] <- 1
-#     stackRight[top] <- n
-#
-#     while(top > 0) {
-#       left <- stackLeft[top]
-#       right <- stackRight[top]
-#       top <- top - 1
-#
-#       if(left < right) {
-#         pivotIdx <- floor((left + right) / 2)
-#         pivotVal <- x[idx[pivotIdx]]
-#         i <- left
-#         j <- right
-#
-#         if(decreasing) {
-#           while(i <= j) {
-#             while(x[idx[i]] > pivotVal) i <- i + 1
-#             while(x[idx[j]] < pivotVal) j <- j - 1
-#             if(i <= j) {
-#               tmp <- idx[i]; idx[i] <- idx[j]; idx[j] <- tmp
-#               i <- i + 1; j <- j - 1
-#             }
-#           }
-#         } else {
-#           while(i <= j) {
-#             while(x[idx[i]] < pivotVal) i <- i + 1
-#             while(x[idx[j]] > pivotVal) j <- j - 1
-#             if(i <= j) {
-#               tmp <- idx[i]; idx[i] <- idx[j]; idx[j] <- tmp
-#               i <- i + 1; j <- j - 1
-#             }
-#           }
-#         }
-#
-#         if(left < j) {
-#           top <- top + 1
-#           stackLeft[top] <- left
-#           stackRight[top] <- j
-#         }
-#         if(i < right) {
-#           top <- top + 1
-#           stackLeft[top] <- i
-#           stackRight[top] <- right
-#         }
-#       }
-#     }
-#
-#     returnType(integer(1))
-#     return(idx)
-#   }
-# )
-#
-# nimOrder <- nimble::nimbleFunction(
-#   run = function(x = double(1), decreasing = logical(0, default = FALSE)) {
-#     returnType(integer(1))
-#     return(quickSortOrderIndexOnly(x, decreasing))
-#   }
-# )
-#
-# nimSort <- nimble::nimbleFunction(
-#   run = function(x = double(1), decreasing = logical(0, default = FALSE)) {
-#     idx <- nimOrder(x, decreasing)
-#     out <- numeric(length(x))
-#     for(i in 1:length(x)) {
-#       out[i] <- x[idx[i]]
-#     }
-#     returnType(double(1))
-#     return(out)
-#   }
-# )
-
 
 # Additional functions for gpPolar
 initfunction_gpPolar <- function(x, y, kappa_init, sigma2_init, psi_init = NULL, grid.with = 0.1,
@@ -231,40 +149,6 @@ betaalpha1<-function(theta)
 }
 
 
-#' One-to-one polar transformation
-#' @description
-#' The \pkg{nimble} function that converts \code{theta} (angles in radians) of length \eqn{p-1} into a
-#' unit-norm vector \eqn{\alpha \in \mathbb{R}^p} on the unit sphere \eqn{\mathbb{S}^{p-1}}
-#' using one-to-one polar transformation. For numerical
-#' stability, the result is renormalized, and for identification the sign is
-#' flipped so that \eqn{\alpha_1 \ge 0}.
-#'
-#' @details
-#' Let \eqn{p = \mathrm{length}(\theta) + 1}. The mapping is
-#' \deqn{
-#' \begin{aligned}
-#' \alpha_1 &= \sin(\theta_1),\\
-#' \alpha_i &= \Big(\prod_{j=1}^{i-1}\cos(\theta_j)\Big)\sin(\theta_i), \quad i=2,\dots,p-1,\\
-#' \alpha_p &= \prod_{j=1}^{p-1}\cos(\theta_j).
-#' \end{aligned}
-#' }
-#' The vector is then scaled to unit length, \eqn{\alpha \leftarrow \alpha / \|\alpha\|_2}.
-#' Finally, if \eqn{\alpha_1 < 0}, the vector is negated so that \eqn{\alpha_1 \ge 0},
-#' restricting to a single hemisphere to avoid sign indeterminacy.
-#'
-#' Typical angle domains (not enforced here) are: \eqn{\theta_1,\dots,\theta_{p-1} \in [0,\pi]}.
-#'
-#' @param theta Numeric vector of angles (in radians) of length \eqn{p-1},
-#'   which parameterize a point on \eqn{\mathbb{S}^{p-1}}.
-#'
-#' @return
-#' A numeric vector \eqn{\alpha} of length \eqn{p = \mathrm{length}(\theta)+1}
-#' with unit Euclidean norm and \eqn{\alpha_1 \ge 0}.
-#'
-#' @seealso \code{\link{gpPolar}}, \code{\link{gpPolarHigh}}, \code{\link{predict.bsimGp}}
-#'
-#' @export
-
 alphaTheta <- nimbleFunction(
   run = function(theta = double(1)){
     returnType(double(1))
@@ -291,29 +175,6 @@ alphaTheta <- nimbleFunction(
 )
 
 ############################ Linear predictor ####################################
-#' Compute the linear index \eqn{X'\theta}
-#'
-#' @description
-#' A \pkg{nimble} function that calculates the \eqn{X'\theta}
-#' for each observation, given matrix \code{dataX} and index
-#' vector \code{betavec}. This serves as a basic building block for
-#' single-index or regression-type models implemented in \pkg{nimble}.
-#'
-#' @details
-#' For a dataset with \eqn{n} observations and \eqn{p} predictors, the function
-#' computes linear projection, \eqn{X'\theta}.
-#' The implementation uses explicit loops to ensure full compatibility with
-#' \pkg{nimble}'s compiled execution framework.
-#'
-#' @param betavec A numeric vector of regression coefficients of length \eqn{p}.
-#' @param dataX A numeric matrix of predictors with \eqn{n} rows (observations)
-#'   and \eqn{p} columns (features).
-#'
-#' @return
-#' A numeric vector of length \eqn{n}, representing \eqn{X'\theta}.
-#'
-#' @seealso \code{\link{gpPolar}}, \code{\link{gpPolarHigh}}, \code{\link{predict.bsimGp}}
-#' @export
 Xlinear <- nimbleFunction(
   run = function(betavec = double(1), dataX = double(2)){
     returnType(double(1))
@@ -370,28 +231,7 @@ invcov <- nimbleFunction(
   }
 )
 
-#' Covariance kernel of OU process
-#' @description
-#' The \pkg{nimble} function that constructs an OU covariance matrix on the \eqn{t = X'\theta}.
-#' The \eqn{(i, j)} entry is \eqn{K_{ij} = \exp\{-\kappa\, |\,\mathrm{t}_i - \mathrm{t}_j\,|\}},
-#' symmetrized explicitly and stabilized with a small diagonal jitter.
-#'
-#' @details
-#' The OU kernel (a Matérn kernel with smoothness \eqn{\nu=1/2}) induces
-#' an exponential correlation that decays with the absolute distance.
-#' After filling the matrix, the function enforces symmetry via
-#' \eqn{(K + K')/2} and adds \eqn{10^{-4}} to the diagonal to improve
-#' numerical conditioning in downstream linear algebra.
-#'
-#' @param vec Numeric vector of input locations. \eqn{t = X'\theta} is the main input value for the single-index model.
-#' @param kappa Non-negative numeric scalar range/decay parameter. Larger values
-#'   imply faster correlation decay.
-#'
-#' @return
-#' A numeric \eqn{n \times n} covariance matrix, where \eqn{n} is the length of input vector \code{vec}.
-#'
-#' @seealso \code{\link{gpPolar}}, \code{\link{gpPolarHigh}}, \code{\link{predict.bsimGp}}
-#'@export
+
 expcov_gpPolar <- nimbleFunction(
   run = function(vec = double(1), kappa = double(0)){
     returnType(double(2))
@@ -506,7 +346,7 @@ pred_gpPolar <- nimbleFunction(
   run = function(newdata = double(2), nsamp = integer(0), y = double(1),
                  indexSample = double(2),
                  XlinSample = double(2), sigma2_samples = double(1),
-                 kappaSample = double(1)){
+                 kappaSample = double(1), prediction = integer(0)){
     returnType(double(2))
 
     new_ncol <- nimDim(newdata)[1]
@@ -533,10 +373,17 @@ pred_gpPolar <- nimbleFunction(
       Sigcov <- cov_new_new - cov_new_ori %*% midMatrix %*%  t(cov_new_ori)
 
       # 4. Sampling
-      predcov <- Sigcov + diag(rep(currSigma, new_ncol))
-      cholpredcov <- chol(predcov)
-      testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
-                                    prec_param  = FALSE))
+      if (prediction == 1){ # latent
+        cholpredcov <- chol(Sigcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      } else{ # response
+        predcov <- Sigcov + diag(rep(currSigma, new_ncol))
+        cholpredcov <- chol(predcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      }
+
     }
     return(testPred)
   }

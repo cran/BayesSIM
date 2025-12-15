@@ -2,86 +2,77 @@
 % Please edit documentation in R/gpspike.R
 \name{gpSpike}
 \alias{gpSpike}
-\title{Bayesian single-index regression with Gaussian process link and spike-and-slab prior}
+\alias{gpSpike_setup}
+\title{Bayesian Single-Index Regression with Gaussian Process Link and Spike-and-Slab Prior}
 \usage{
 gpSpike(
-  x,
-  y,
-  prior = list(index = list(r1 = 1, r2 = 1, sigma_theta = 0.25), link =
-    list(inv_lambda_shape = 1, inv_lambda_rate = 0.1), sigma2 = list(shape = 0.001, rate
-    = 0.001)),
-  init = list(index = list(pi = 0.5, nu = NULL, index = NULL), link = list(inv_lambda =
-    NULL), sigma2 = NULL),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+gpSpike_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response numeric vector/matrix. Other types  are not available}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{Spike and slab prior hyperparameters: Beta-binomial for variable selection (default \code{r1 = 1, r2 = 1}),
-and normal distribution for selected variables (default: \eqn{N(0, \sigma_{\theta}^{2}}))}
-\item{\code{link}}{Gaussian process prior hyperparameters \code{lambda}: Inverse-Gamma prior is assigned for \eqn{\lambda^{-1}}
-(default \code{inv_lambda_shape = 1, inv_lambda_rate = 0.1})}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 0.001, rate = 100})}
-}}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{
-\enumerate{
-\item{\code{pi}: Initial selecting variable probability. (default: \code{0.5})}
-\item{\code{nu}: Initial vector of inclusion indicators . By default, each \code{nu} is randomly drawn by  \eqn{Bernoulli(1/2)}}
-\item{\code{index}: Initial vector of index. By default, each element of index vector, which is chosen by nu, is proposed by normal distribution.}
-}}
-\item{\code{link}}{Initial scalar of lambda (\code{inv_lambda}) for covariance of Gaussian process.}
-\item{\code{sigma2}}{Initial scalar error variance. (default: \code{0.01})}
-}}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{fitted = FALSE}, fitted values are not drawn and only \code{c("nu", "indexstar", "sigma2")} are monitored.
-If \code{fitted = TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("Xlin", "invlambda")} is additionally monitored for prediction.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpSpike(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for monitors1 (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\nu}, \eqn{\theta^*}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values.}
-\item{\code{input}}{List of input values for prior, initial values and execution time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
-Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}
+Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n},
 where index vector \eqn{\theta} has a spike and slab prior and
 the link \eqn{f(\cdot)} is represented by Gaussian process and the
 }
@@ -99,17 +90,45 @@ Therefore, \eqn{\theta^{*}} is sampled in MCMC.
 
 \strong{Priors}
 \itemize{
-\item Inclusion indicators \eqn{\nu_l}: Bernoulli(\eqn{\pi}).
-\item Inclusion probability \eqn{\pi}: Beta(\eqn{r_1, r_2}).
-\item Slab coefficients \eqn{\theta_l^*}: Gaussian \eqn{N(0, \sigma_\theta^2)}.
-\item GP precision \eqn{\lambda^{-1}}: Gamma(\eqn{a_\lambda, b_\lambda}).
-\item Error precision \eqn{(\sigma^2)^{-1}}: Gamma(\eqn{a_\sigma, b_\sigma}).
+\item The variable selection indicator \eqn{\nu} has Beta–Bernoulli hierarchy prior. Beta hyper-prior on the Bernoulli–inclusion probability \eqn{w},
+inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where  \eqn{n_\nu = \Sigma_{i=1}^{p}I(\nu_i = 1)}.
+\eqn{r_1, r_2} are shape and rate parameter of beta distribution.
+\item Slab coefficients \eqn{\theta} have normal distribution with zero mean and \eqn{\sigma_\theta^2} variance.
+\item GP precision \eqn{\lambda^{-1}} follows gamma distribution with shape parameter \eqn{a_\lambda}, and rate parameter \eqn{b_\lambda}.
+\item Error precision \eqn{(\sigma^2)^{-1}} follows gamma distribution with shape parameter \eqn{a_\sigma}, and rate parameter \eqn{b_\sigma}.
 }
 
 \strong{Sampling} A random walk Metropolis algorithm is used to sample \eqn{\lambda^{-1}}
 and a Metropolis-Hastings algorithm is used for the main parameters \eqn{(\theta^{*}, \nu)}.
 The variance \eqn{\sigma^2} is directly sampled from posterior distribution.
 \eqn{f} is not directly sampled by MCMC.
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
+\item Link function: Inverse gamma prior is assigned for hyper-parameters \eqn{\lambda^{-1}}
+\code{link_inv_lambda_shape} is shape parameter and \code{link_inv_lambda_rate} is rate parameter of inverse gamma distribution.
+(default \code{link_inv_lambda_shape = 1, link_inv_lambda_rate = 0.1})
+\item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 0.001, sigma2_rate = 100})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}
+\enumerate{
+\item Index vector:
+\itemize{
+\item{\code{index_pi}: Initial selecting variable probability. (default: \code{0.5})}
+\item{\code{index_nu}: Initial vector of inclusion indicators . By default, each \code{index_nu} is randomly drawn by  \eqn{Bernoulli(1/2)}}
+\item{\code{index}: Initial vector of index. By default, each element of index vector, which is chosen by indicator, is proposed by normal distribution.}
+}
+\item Link function: Initial scalar of lambda (\code{link_inv_lambda}) for covariance kernel of Gaussian process.
+\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
+
+}
 }
 \examples{
 \donttest{
@@ -121,16 +140,23 @@ sigma <- 0.5
 X <- matrix(runif(n * d, -1, 1), nrow = n)
 index_vals <- as.vector(X \%*\% theta)
 y <- f(index_vals) + rnorm(n, 0, sigma)
+simdata <- data.frame(x = X, y = y)
+colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
-fit <- gpSpike(X, as.vector(y))
+fit1 <- gpSpike(y ~ ., data = simdata,
+               niter = 5000, nburnin = 1000)
 
 # Split version
-models <- gpSpike(X, as.vector(y), sampling = FALSE)
+models <- gpSpike_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, init = models$input$init,
-                   summary = TRUE, samplesAsCodaMCMC = TRUE)
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+                    nchains = 1, setSeed = TRUE, inits = initList,
+                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+summary(fit2)
 }
 
 }

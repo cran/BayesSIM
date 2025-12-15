@@ -1,87 +1,68 @@
-#' Bayesian single-index regression with B-spline link and half-unit sphere prior
-#'
+#' Bayesian Single-Index Regression with B-Spline Link and Half-Unit Sphere Prior
 #'
 #' @description
 #' Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}
 #' where the link \eqn{f(\cdot)} is represented by B-spline link and the
 #' index vector \eqn{\theta} is on half-unit sphere.
 #'
-#' @param x Numeric data.frame/matrix of predictors. Each row is an observation.
-#' @param y Numeric response vector/matrix.
-#' @param prior Optional named list of prior settings with sublists:
-#' \describe{
-#' \item{\code{index}}{ \code{nu} is binary inclusion indicators prior for variable selection in the index:
-#'     \code{list(r1, r2)} gives the Beta hyperprior on the Bernoulli–inclusion probability \eqn{w},
-#'     inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} (default \code{r1 = 1, r2 = 2}).}
-#' \item{\code{link}}{ B-spline knots, basis and coefficient setup.
-#' \enumerate{
-#'   \item{\code{knots} Free-knot prior for the spline. \code{lambda_k} is the Poisson mean for the number of
-#'     interior knot \eqn{k} (default \code{5}). \code{maxknots} is the maximum number of interior knots.
-#'     If \code{maxknots} is \code{NULL}, the number of interior knots is randomly drawn from a Poisson distribution.}
-#'   \item{\code{basis} For the basis of B-spline,  \code{degree} is the spline
-#'     degree (default \code{2}).}
-#'   \item{\code{beta} For the coefficient of B-spline, conjugate normal prior on \eqn{\beta} with covariance \eqn{\tau \Sigma_0} is assigned.
-#'    By default, \code{mu} is a zero vector, \code{tau} is set to the sample size,
-#'     and \code{Sigma0} is the identity matrix of dimension \eqn{1 + k + m},
-#'     where \eqn{k} is the number of interior knots and \eqn{m} is the spline order (degree + 1).}}
-#' }
-#'
-#' \item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-#'  where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution. (default \code{shape = 0.001, rate = 0.001}).
-#'     Small values for shape and rate parameters yield a weakly-informative prior on \eqn{\sigma^{2}}.}
-#' }
-#'
-#' @param init Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-#' \describe{
-#' \item{\code{index}}{\code{nu} is binary vector indicating active predictors for the index.
-#' \code{index} is initial unit-norm index vector \eqn{\theta} (automatically normalized if necessary, with the first nonzero element made positive for identifiability).
-#'     The vector length must match the number of columns in data \code{x}.
-#'     Ideally, positions where \code{nu} has a value of 1 should correspond to nonzero elements in \eqn{\theta}; elements corresponding to \code{nu} = 0 will be set to zero.}
-#'  \item{\code{link}}{\code{k} is initial number of interior knots. \code{knots} is initial vector of interior knot positions in \eqn{[0, 1]}, automatically scaled to the true boundary.
-#'     Length of this vector should be equal to the initial value of \code{k}.
-#'     \code{beta} is initial vector of spline coefficients. Length should be equal to the initial number of basis functions with intercept (\eqn{1 + k + m}).}
-#'   \item{\code{sigma2}}{Initial scalar error variance. (default \code{0.01})}
-#' }
-#'
-#' @param sampling Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.
-#' @param fitted Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and
-#' \code{c("linkFunction", "beta", "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")} is monitored for prediction.
-#' @param monitors2 Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- bsSphere(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.
-#' @param niter Integer. Total MCMC iterations (default \code{10000}).
-#' @param nburnin Integer. Burn-in iterations (default \code{1000}).
-#' @param thin Integer. Thinning for monitors1 (default \code{1}).
-#' @param thin2 Integer. Optional thinning for \code{monitors2} (default \code{1}).
-#' @param nchain Integer. Number of MCMC chains (default \code{1}).
-#' @param setSeed Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.
+#' @inheritParams bsFisher
 #'
 #' @details
 #' \strong{Model} The single–index model uses a \eqn{m}-order polynomial spline with \eqn{k} interior knots and intercept as follows:
-#' \eqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = x_i' \theta, i = 1,\cdots, n}
-#' and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k+1}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a = min(t_i, i = 1, \cdots, n)},
-#' and \eqn{b = max(t_i, i = 1,\cdots, n)}. Variable selection is encoded by a binary vector \eqn{\nu}, equivalently
+#' \deqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = X_i' \theta, i = 1,\cdots, n}
+#' and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k+1}} are spline coefficients and \eqn{a_\theta}, \eqn{ b_\theta} are boundary knots where \eqn{a_{\theta} = min(t_i, i = 1, \cdots, n)},
+#' and \eqn{b_{\theta} = max(t_i, i = 1,\cdots, n)}. Variable selection is encoded by a binary vector \eqn{\nu}, equivalently
 #' setting components of \eqn{\theta} to zero when \eqn{\nu_i = 0}.
 #'
 #' \strong{Priors}
 #' \itemize{
-#'   \item Free‑knot prior: \eqn{k \sim \mathrm{Poisson}(\lambda_k)}, knot locations \eqn{\xi_i, i = 1,...,k} via a Dirichlet prior on the scaled interval.
-#'   \item Beta–Bernoulli hierarchy for \eqn{\nu}, yielding a Beta–Binomial prior.
-#'   \item Spherical prior on the index: uniform on the half‑sphere of dimension \eqn{n_\nu}with first nonzero positive.
-#'   \item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration and a lower‑dimensional marginal target for RJMCMC.
+#' \item The variable selection indicator \eqn{\nu} has Beta–Bernoulli hierarchy prior. Beta hyper-prior on the Bernoulli–inclusion probability \eqn{w},
+#'     inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where  \eqn{n_\nu = \Sigma_{i=1}^{p}I(\nu_i = 1)}.
+#'     \eqn{r_1, r_2} are shape and rate parameter of beta distribution.
+#'   \item Free‑knot prior: the number of knots \eqn{k} with mean \eqn{\lambda_k}. The knot locations \eqn{\xi_i, i = 1,...,k} have a Dirichlet prior on the scaled interval \eqn{[0, 1]}.
+#'   \item Index vector prior is uniform on the half‑sphere of dimension \eqn{n_\nu} with first nonzero positive.
+#'   \item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration for RJMCMC with covariance \eqn{\tau \Sigma_0}.
 #' }
 #'
 #' \strong{Sampling} Posterior exploration follows a hybrid RJMCMC with six move types:
 #' add/remove predictor \eqn{\nu}, update \eqn{\theta}, add/delete/relocate a knot. The \eqn{\theta} update is a random‑walk
-#' Metropolis via local rotations in a two‑coordinate subspace; knot moves use simple proposals with tractable acceptance ratios.
-#' Further sampling method is described in Wang(2009).
+#' Metropolis via local rotations in a two‑coordinate subspace. Knot changes use simple proposals with tractable acceptance ratios.
+#' Further sampling method is described in Wang (2009).
 #'
-#' @return A \code{list} typically containing:
-#' \describe{
-#'   \item{\code{model}}{Nimble model}
-#'   \item{\code{sampler}}{Nimble sampler}
-#'   \item{\code{sampling}}{Posterior draws of \eqn{\nu}, \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-#'   \item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-#'   \item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
-#' }
+#' \strong{Prior hyper-parameters}
+#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#'  \enumerate{
+#'  \item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively. (default \code{index_nu_r1 = 1, index_nu_r2 = 1}).
+#' \item Link function: B-spline knots, basis and coefficient setup.
+#' \itemize{
+#'   \item{knots: Free-knot prior for the spline. \code{link_knots_lambda_k} is the Poisson mean for the number of
+#'     interior knot \eqn{k} (default \code{5}). \code{link_knots_maxknots} is the maximum number of interior knots.
+#'     If \code{link_knots_maxknots} is \code{NULL}, the number of interior knots is randomly drawn from a Poisson distribution.}
+#'   \item{basis: For the basis of B-spline,  \code{link_basis_degree} is the spline
+#'     degree (default \code{2}).}
+#'   \item{beta: For the coefficient of B-spline,
+#'    By default, \code{link_beta_mu} is a zero vector, \code{link_beta_tau} is set to the sample size,
+#'     and \code{link_beta_Sigma0} is the identity matrix of dimension \eqn{1 + k + m},
+#'     where \eqn{k} is the number of interior knots and \eqn{m} is the spline order.}}
+#' \item Error variance (\code{sigma2}): Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'  where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+#'     Small values for shape and rate parameters yield a weakly-informative prior on \eqn{\sigma^{2}}. (default \code{sigma2_shape = 0.001, sigma2_rate = 0.001})
+#'  }
+#'
+#' \strong{Initial values}
+#' These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+#'  \enumerate{
+#'  \item Index vector: \code{index_nu} is binary vector indicating active predictors for the index.
+#' \code{index} is initial unit-norm index vector \eqn{\theta} (automatically normalized if necessary, with the first nonzero element made positive for identifiability).
+#'     The vector length must match the number of predictor.
+#'     Ideally, positions where \code{index_nu} has a value of 1 should correspond to nonzero elements in \eqn{\theta}; elements corresponding to \code{index_nu} = 0 will be set to zero.
+#'  \item Link function: \code{link_k} is initial number of interior knots. \code{link_knots} is initial vector of interior knot positions in \eqn{[0, 1]}, automatically scaled to the true boundary.
+#'     Length of this vector should be equal to the initial value of \code{k}.
+#'     \code{link_beta} is initial vector of spline coefficients. Length should be equal to the initial number of basis functions with intercept (\eqn{1 + k + m}).
+#'   \item Error variance (\code{sigma2}): Initial scalar error variance. (default \code{0.01})
+#'  }
+#'
+#' @inherit bsFisher return
 #'
 #' @examples
 #' \donttest{
@@ -93,16 +74,23 @@
 #' X <- matrix(runif(n * d, -1, 1), nrow = n)
 #' index_vals <- as.vector(X %*% theta)
 #' y <- f(index_vals) + rnorm(n, 0, sigma)
+#' simdata <- data.frame(x = X, y = y)
+#' colnames(simdata) <- c(paste0("X", 1:4), "y")
 #'
-#' # One-call version
-#' fit <- bsSphere(X, y)
+#' # One tool version
+#' fit1 <- bsSphere(y ~ ., data = simdata,
+#'                  niter = 5000, nburnin = 1000, nchain = 1)
 #'
 #' # Split version
-#' models <- bsSphere(X, y, sampling = FALSE)
+#' models <- bsSphere_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-#'                     nchains = 1, setSeed = TRUE, init = models$input$init,
-#'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' nimSampler <- get_sampler(Ccompile)
+#' initList <- getInit(models)
+#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#'                    nchains = 1, setSeed = TRUE, inits = initList,
+#'                    samplesAsCodaMCMC = TRUE)
+#' fit2 <- as_bsim(models, mcmc.out)
+#' summary(fit2)
 #' }
 #'
 #' @references
@@ -112,36 +100,58 @@
 #' Hornik, K., & Grün, B. (2014). movMF: an R package for fitting mixtures of von Mises-Fisher distributions.
 #' \emph{Journal of Statistical Software}, 58, 1-31.
 #'
-#'
+#' @name bsSphere
 #' @export
+bsSphere <- function(formula, data,
+                     prior = NULL,
+                     init = NULL,
+                     monitors = NULL, niter = 10000, nburnin=1000,
+                     thin = 1, nchain = 1, setSeed = FALSE){
 
-bsSphere <- function(x, y,
-                     prior = list(
-                       index = list(nu = list(r1 = 1, r2 = 1)),
-                       link = list(knots = list(lambda_k = 5, maxknots = NULL),
-                                   basis = list(degree = 2),
-                                   beta = list(mu = NULL, tau = NULL, Sigma0 = NULL)),
-                       sigma2 = list(shape = 0.001, rate = 0.001)),
-                     init = list(index = list(nu = NULL, index = NULL),
-                                 link = list(k = NULL, knots = NULL, beta = NULL),
-                                 sigma2 = 0.01),
-                     sampling = TRUE, fitted = TRUE,
-                     monitors2 = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, thin2 = NULL, nchain = 1, setSeed = FALSE
+  return(bsSphere.default(formula = formula, data  = data,
+                          prior = prior,
+                          init = init,
+                          sampling = TRUE,
+                          monitors = monitors, niter = niter, nburnin = nburnin,
+                          thin = thin, nchain = nchain, setSeed = setSeed))
+}
+
+#' @rdname bsSphere
+#' @export
+bsSphere_setup <- function(formula, data,
+                           prior = NULL,
+                           init = NULL,
+                           monitors = NULL, niter = 10000, nburnin=1000,
+                           thin = 1, nchain = 1, setSeed = FALSE){
+  return(bsSphere.default(formula = formula, data  = data,
+                          prior = prior,
+                          init = init,
+                          sampling = FALSE,
+                          monitors = monitors, niter = niter, nburnin = nburnin,
+                          thin = thin, nchain = nchain, setSeed = setSeed))
+}
+
+bsSphere.default <- function(formula, data,
+                     prior = NULL,
+                     init = NULL,
+                     sampling = TRUE,
+                     monitors = NULL, niter = 10000, nburnin=1000,
+                     thin = 1, nchain = 1, setSeed = FALSE
 ){
 
   start1 <- Sys.time()
   index <- 0; k <- 0; knots <- 0; sigma2 <- 0
 
-  # check sampling, prior, init parameters for independent execution
+  # check sampling, prior, init parameters for independent execution --------
   checkOutput <- validate_and_finalize_args(
-    sampling, fitted, niter, nburnin, thin, thin2, nchain,
+    sampling, niter, nburnin, thin, nchain,
     prior, init, "sphere", "bspline"
   )
   prior <- checkOutput$priorlist_final
   init <- checkOutput$initlist_final
 
-  # environment
+  # global environment
+
   envobj <- ls(envir=.GlobalEnv)
   on.exit(rm(list=ls(envir=.GlobalEnv)[which(!ls(envir=.GlobalEnv)%in%envobj)],envir=.GlobalEnv))
   .fns <- c(
@@ -160,7 +170,10 @@ bsSphere <- function(x, y,
     "computeA1_nu0","computeA2_add","computeA2_delete","rnormTrun","newKnots",
     "prop_add","prop_delete","rtruncnorm","pred_bsplineSphere",
     "nuSampler_bspline_sphere","indexSampler_bspline_sphere","knotsSampler_bspline_sphere",
-    "betaSampler_bspline_sphere","sigma2Sampler_bspline_sphere",
+    "betaSampler_bspline_sphere","sigma2Sampler_bspline_sphere", "transX_fisher",
+
+    # distribution
+    "dunitSphere", "runitSphere","dKnotsSimple", "rKnotsSimple",
 
     # utils
     "pred_fitted"
@@ -170,23 +183,70 @@ bsSphere <- function(x, y,
   ns <- asNamespace(pkg)
   list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
 
+  suppressMessages(
+  nimble::registerDistributions(list(
+    dKnotsSimple = list(
+      BUGSdist = "dKnotsSimple(a, b, k, alpha)",
+      types = c("value = double(1)", "a = double(0)", "b = double(0)", "k = double(0)",
+                "alpha = double(1)"),
+      discrete = FALSE
+    )
+  ), verbose = FALSE))
 
+  suppressMessages(
+  nimble::registerDistributions(list(
+    dunitSphere = list(
+      BUGSdist     = "dunitSphere(dim)",
+      types        = c("value = double(1)",
+                       "dim   = double(0)"),
+      discrete     = FALSE
+    )
+  ), verbose = FALSE)
+
+  )
 
   # check data dimension
-  if (!is.matrix(x) & !is.data.frame(x)){stop("x is not matrix/data.frame.")}
-  if (!is.vector(y) & !is.matrix(y)){stop("y is not vector or matrix.")}
-  if (is.matrix(y)){
-    if ((ncol(y) != 1)){
-      stop("y should be scalar vector or matrix.")
+  # Data
+  if (!is.data.frame(data)){
+    stop("data should be an data.frame.")
+  }
+
+  Call <- match.call()
+  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+  if (indx[1] == 0L)
+    stop("a 'formula' argument is required")
+  temp <- Call[c(1L,indx)]
+  temp[[1L]] <- quote(stats::model.frame)
+  m <- eval.parent(temp)
+  Terms <- attr(m,"terms")
+  formula <- as.character(formula)
+  response.name <- formula[2]
+  data.name <- strsplit(formula[3]," \\+ ")[[1]]
+  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+  if(data.name[1]=="."){
+    tot.name <- response.name
+  } else{
+    tot.name <- c(response.name ,data.name)
+  }
+  if(!int.flag){
+    stop("BayesSIM cannot treat interaction terms")
+  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+           length(tot.name)){
+    stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                           tot.name))[-c(1:ncol(data))]],collapse=","),
+               " is/are not in your data"))
+  }else{
+    origY <- data[ ,response.name]
+    if(data.name[1]=="."){
+      origX <- data[,colnames(data) != response.name]
+    }else {
+      origX <- data[ ,data.name,drop=FALSE]
     }
   }
 
-  X <- as.matrix(x)
-  Y <- matrix(y, ncol = 1)
-
-  if (nrow(X) != nrow(Y)){
-    stop("x and y have different dimension.")
-  }
+  # X = origX, Y = origY
+  X <- as.matrix(origX)
+  Y <- as.matrix(origY)
 
   # data dimension
   N <- length(Y)
@@ -355,10 +415,6 @@ bsSphere <- function(x, y,
     }
   }
 
-
-
-
-
   inits_list <- lapply(seq_len(nchain),
                        function(j) initFunction_bS(nu = init$index$nu, index = init$index$index,
                                                    k = init$link$k, beta = init$link$beta,
@@ -373,31 +429,23 @@ bsSphere <- function(x, y,
   # Build model
   message("Build Model")
   suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
-                             data = list(X = X, Y = Y),
-                             constants = list(p = p, N = N, r1 = r1, r2 = r2,
-                                              lambda_k = lambda_k,maxknots = maxknots,
-                                              a_sig = a_sig, b_sig = b_sig, alpha= alpha,
-                                              tau = tau, degree = degree, maxBasis = maxBasis,
-                                              mubeta = mubeta, Sigma0 = Sigma0,
-                                              Sigma = Sigma),
-                             inits = firstInit))
+                                              data = list(X = X, Y = Y),
+                                              constants = list(p = p, N = N, r1 = r1, r2 = r2,
+                                                               lambda_k = lambda_k,maxknots = maxknots,
+                                                               a_sig = a_sig, b_sig = b_sig, alpha= alpha,
+                                                               tau = tau, degree = degree, maxBasis = maxBasis,
+                                                               mubeta = mubeta, Sigma0 = Sigma0,Sigma = Sigma),
+                                              inits = firstInit))
 
   # Assign samplers
   message("Assign samplers")
-  monitorsList <- c("nu" ,"index", "sigma2")
-  if (fitted){
-    monitorsList <- c(monitorsList, "linkFunction", "beta",
-                      "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
-  }
-  if (is.null(monitors2)){
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList,
-                              print = FALSE))
-  } else{
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList, monitors2 = monitors2,
-                              print = FALSE))
-  }
+  # List that is needed for fitting the model
+  monitorsList <- c("index", "nu", "sigma2", "linkFunction", "beta",
+                    "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
+
+  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                             monitors = monitorsList,
+                                             print = FALSE))
 
 
   # mcmcConf1$printSamplers(executionOrder= TRUE)
@@ -423,117 +471,100 @@ bsSphere <- function(x, y,
 
 
   mcmc1 <- buildMCMC(mcmcConf)
-  end1 <- Sys.time()
+
 
 
   if (!sampling){ # not mcmc sampling
-    mcmc.out <- NULL
-    fittedResult <- NULL
-    sampMCMC <- NULL
+    samples <- NULL
 
   } else{
     # Compile
+    start2 <- Sys.time()
     message("Compile Model")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
     message("Compile MCMC")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
+    end2 <- Sys.time()
 
     # Sampling
-    start2 <- Sys.time()
+
     message("Run MCMC")
     mcmc.out <- NULL
     if (setSeed == FALSE){
       seedNum <- setSeed
     }
-    if (is.null(monitors2)){
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin,
-                          nchains = nchain, setSeed = seedNum,
-                          inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    } else{
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin, thin2 = thin2,
-                          nchains = nchain, setSeed = seedNum,
-                          inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    }
-    end2 <- Sys.time()
+    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                        thin = thin,
+                        nchains = nchain, setSeed = seedNum,
+                        inits = inits_list,
+                        summary = FALSE, samplesAsCodaMCMC = TRUE)
+
 
     # output
-    start3 <- Sys.time()
-    ## combine all chaines
-    samples <- NULL
+    ## combine all chains
     sampMCMC <- mcmc.out
-    # if (enableWAIC){
-    #   sampMCMC <- mcmc.out$samples
-    # } else{
-    #   sampMCMC <- mcmc.out
-    # }
-    if (nchain > 1){
-      for (i in 1:nchain){
-        samples <- rbind(samples, mcmc.out[[i]])
-      }
-    } else if (nchain == 1){
-      samples <- mcmc.out
-    }
-
-    if (fitted){ # posterior fitted value output (mean, median, sd)
-      # fittedResult <- NULL
-      message("Compute posterior fitted value")
-      # namesBeta <- paste0("index", 1:p)
-      namesLink <- paste0("linkFunction[", 1:N, ", 1]")
-      namesSigma <- "sigma2"
-      LinkFunction_samples <- samples[, namesLink]
-      sigma2_samples <- samples[, namesSigma]
-
-      message("Compile function..")
-      suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
-      message("Computing predicted value..")
-      fittedValue <- cpred_fitted(LinkFunction_samples,
-                                   sigma2_samples)
-
-      fittedResult <- fittedValue
-      } else{
-      fittedResult <- NULL
-    }
+    samples <- sampleBind(sampMCMC, nchain)
 
   }
 
-  end3 <- Sys.time()
+  end1 <- Sys.time()
 
   # inputOptions <- NULL
   if (!sampling){
     time <- NULL
-  } else if (!fitted){
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    time <- list(samp = samp_time)
   } else{
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    fitted_time <- difftime(end3, start3, units = "secs")
-    time <- list(samp = samp_time, fitted = fitted_time)
+    # total time - compile time
+    time_wo_compile <- difftime(end1, start1, units = "secs") -
+      difftime(end2, start2, units = "secs")
+
+    time <- list(time_wo_compile = time_wo_compile)
+
   }
 
-  inputOptions <- list(data = list(x = X, y = Y),
+  # Results ------------------------------------------------------------------
+  #Model point estimation
+  modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+  # input options
+  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
                        prior = list(index = list(nu = list(r1 = r1, r2 = r2)),
                                     link = list(knots = list(lambda_k = lambda_k, maxknots = maxknots),
                                                 basis = list(degree = degree),
                                                 beta = list(mu = mubeta, tau = tau, sigma0 = Sigma0)),
                                     sigma2 = list(shape = a_sig, rate = b_sig)),
                        init = inits_list,
+                       samplingOptions = list(sampling = sampling,
+                                              monitors = monitors, niter = niter,
+                                              nburnin = nburnin, thin = thin,
+                                              nchain = nchain, setSeed = setSeed),
                        time = time)
 
+  if (sampling){
+    out <- list(coefficients = modelESTLIST$coefficients,
+                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                residuals = modelESTLIST$residuals,
+                fitted.values = modelESTLIST$fitted.values,
+                linear.predictors = modelESTLIST$linear.predictors,
+                gof = modelESTLIST$gof,
+                samples = sampMCMC, # return of runMCMC
+                input = inputOptions,
+                defModel = simpleModel, defSampler = mcmc1,
+                modelName = "bsSphere")
 
-  out <- list(model = simpleModel,
-              sampler = mcmc1,
-              sampling = sampMCMC,
-              fitted = fittedResult,
-              input = inputOptions,
-              modelName = "bsSphere")
-  class(out) = "bsimSpline"
+    class(out) = "bsim"
 
 
+  } else{
+    out <- list(input = inputOptions,
+                defModel = simpleModel,
+                defSampler = mcmc1,
+                modelName = "bsSphere")
+
+    class(out) = "bsimSetup"
+
+  }
   return(out)
+
 }

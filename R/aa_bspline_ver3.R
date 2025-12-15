@@ -1,4 +1,4 @@
-#' Additional functions for spline
+#' Additional Functions for Spline
 SplineState <- nimble::nimbleList(
   x                       = double(1),
   internal_knots          = double(1),
@@ -48,7 +48,8 @@ mat_wo_col1 <- nimble::nimbleFunction(
     returnType(double(2))
     x_ncol <- nimDim(mat)[2]
     if (x_ncol > 1){
-      return(mat[, (2:x_ncol)])
+      idxCol <- 2:x_ncol
+      return(mat[, idxCol])
     } else{
       nimStop("No column left in the matrix.")
     }

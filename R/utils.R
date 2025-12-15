@@ -1,3 +1,5 @@
+#' @importFrom ggplot2 ggplot aes geom_point geom_line labs theme_minimal theme geom_ribbon
+# Initial values setting for bsPolar
 initFunction_bP <- function(X, Y,
                             psi, sigma2, beta,
                             df, degree, delta,
@@ -50,7 +52,7 @@ initFunction_bP <- function(X, Y,
 
 }
 
-
+# Initial values setting for bsSpike
 initFunction_bSpike <- function(X, Y,
                                 pi, nu, index,
                                 sigma2, beta,
@@ -153,7 +155,7 @@ initFunction_bSpike <- function(X, Y,
 
 }
 
-
+# Initial values setting for gpFisher
 initFunction_gpFisher <- function(X, Y,
                                   index, lengthscale,
                                   amp, sigma2,
@@ -218,199 +220,6 @@ initFunction_gpFisher <- function(X, Y,
 }
 
 
-prior.param.default <- function(indexprior, link){
-  priorList <- list(index = NULL, link = NULL, sigma2 = NULL)
-  if (link == "bspline"){
-    if (indexprior == "fisher"){
-      priorList <- list(index = list(direction = NULL, dispersion = 150),
-                        link = list(basis = list(df = 21, degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-    } else if (indexprior == "sphere"){
-      priorList <- list(index = list(nu = list(r1 = 1, r2 = 1)),
-                        link = list(knots = list(lambda_k = 5, maxknots = NULL),
-                                    basis = list(degree = 2),
-                                    beta = list(mu = NULL, tau = NULL,Sigma0 = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 0.001))
-
-    } else if (indexprior == "polar"){
-      priorList <- list(index = list(psi = list(alpha = NULL)),
-                        link = list(basis = list(df = 21,degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-    } else if (indexprior == "spike"){
-      priorList <- list(index = list(nu = list(r1 = 1, r2 = 1), index = list(sigma_theta = 0.25)),
-                        link = list(basis = list(df = 21, degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else if (link == "gp"){
-    if (indexprior == "fisher"){
-      priorList <- list(index = list(direction = NULL, dispersion = 150),
-                        link = list(lengthscale = list(shape = 1/8, rate = 1/8),
-                                    amp = list(a_amp = -1, b_amp = 1)),
-                        sigma2 = list(shape = 1, rate = 1))
-
-    } else if (indexprior == "sphere"){
-      priorList <- list(index = NULL,
-                        link = list(lengthscale = list(shape = 1/8, rate = 1/8),
-                                    amp = list(a_amp = -1, b_amp = 1)),
-                        sigma2 = list(shape = 1, rate = 1))
-
-    } else if (indexprior == "polar"){
-      priorList <- list(index = list(psi = list(alpha = NULL)),
-                        link = list(kappa = list(min_kappa= 0.5, max_kappa = 4, grid.width = 0.1)),
-                        sigma2 = list(shape = 2, rate = 0.01))
-
-    } else if (indexprior == "spike"){
-      priorList <- list(index = list(r1 = 1, r2 = 1, sigma_theta = 0.25),
-                        link = list(inv_lambda_shape = 1, inv_lambda_rate = 0.1),
-                        sigma2 = list(shape = 0.001, rate = 0.001))
-
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else{
-    stop("Error: Wrong link function name!")
-  }
-
-}
-
-
-
-prior.param.default <- function(indexprior, link){
-  priorList <- list(index = NULL, link = NULL, sigma2 = NULL)
-  if (link == "bspline"){
-    if (indexprior == "fisher"){
-      priorList <- list(index = list(direction = NULL, dispersion = 150),
-                        link = list(basis = list(df = 21, degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-    } else if (indexprior == "sphere"){
-      priorList <- list(index = list(nu = list(r1 = 1, r2 = 1)),
-                        link = list(knots = list(lambda_k = 5, maxknots = NULL),
-                                    basis = list(degree = 2),
-                                    beta = list(mu = NULL, tau = NULL,Sigma0 = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 0.001))
-
-    } else if (indexprior == "polar"){
-      priorList <- list(index = list(psi = list(alpha = NULL)),
-                        link = list(basis = list(df = 21,degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-    } else if (indexprior == "spike"){
-      priorList <- list(index = list(nu = list(r1 = 1, r2 = 1), index = list(sigma_theta = 0.25)),
-                        link = list(basis = list(df = 21, degree = 2, delta = 0.01),
-                                    beta = list(mu = NULL, cov = NULL)),
-                        sigma2 = list(shape = 0.001, rate = 100))
-
-
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else if (link == "gp"){
-    if (indexprior == "fisher"){
-      priorList <- list(index = list(direction = NULL, dispersion = 150),
-                        link = list(lengthscale = list(shape = 1/8, rate = 1/8),
-                                    amp = list(a_amp = -1, b_amp = 1)),
-                        sigma2 = list(shape = 1, rate = 1))
-
-    } else if (indexprior == "sphere"){
-      priorList <- list(index = NULL,
-                        link = list(lengthscale = list(shape = 1/8, rate = 1/8),
-                                    amp = list(a_amp = -1, b_amp = 1)),
-                        sigma2 = list(shape = 1, rate = 1))
-
-    } else if (indexprior == "polar"){
-      priorList <- list(index = list(psi = list(alpha = NULL)),
-                        link = list(kappa = list(min_kappa= 0.5, max_kappa = 4, grid.width = 0.1)),
-                        sigma2 = list(shape = 2, rate = 0.01))
-
-    } else if (indexprior == "spike"){
-      priorList <- list(index = list(r1 = 1, r2 = 1, sigma_theta = 0.25),
-                        link = list(inv_lambda_shape = 1, inv_lambda_rate = 0.1),
-                        sigma2 = list(shape = 0.001, rate = 0.001))
-
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else{
-    stop("Error: Wrong link function name!")
-  }
-
-  return(priorList)
-
-}
-
-
-init.param.default <- function(indexprior, link){
-  initList <- list(index = NULL, link = NULL, sigma2 = NULL)
-  if (link == "bspline"){
-    if (indexprior == "fisher"){
-      initList <- list(index = NULL, link = list(beta = NULL), sigma2 = 0.01)
-
-    } else if (indexprior == "sphere"){
-      initList <-list(index = list(nu = NULL, index = NULL),
-                      link = list(k = NULL, knots = NULL, beta = NULL),
-                      sigma2 = 0.01)
-
-    } else if (indexprior == "polar"){
-      initList <- list(index = list(psi = NULL), link = list(beta = NULL), sigma2 = 0.01)
-
-    } else if (indexprior == "spike"){
-      initList <- list(index = list(pi = 0.5, nu = NULL, index = NULL),
-                       link = list(beta = NULL),
-                       sigma2 = 0.01)
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else if (link == "gp"){
-    if (indexprior == "fisher"){
-      initList <- list(index = NULL,
-                       link = list(lengthscale = 0.1, amp = 1),
-                       sigma2 = 1)
-
-    } else if (indexprior == "sphere"){
-      initList <- list(index = list(index = NULL),
-                      link = list(lengthscale = 0.1, amp = 1),
-                      sigma2 = 1)
-
-    } else if (indexprior == "polar"){
-      initList <- list(index = list(psi = NULL),
-                       link = list(kappa = 2),
-                       sigma2 = 0.01)
-
-    } else if (indexprior == "spike"){
-      initList <- list(index = list(pi = 0.5, nu = NULL, index = NULL),
-                       link = list(inv_lambda = NULL),
-                       sigma2 = NULL)
-
-    } else{
-      stop("Error: Wrong index prior name!")
-    }
-
-  } else{
-    stop("Error: Wrong link function name!")
-  }
-
-  return(initList)
-
-}
-
-
 param.check <- function(user, template){
   old <- options(error = NULL)
   on.exit(options(old))
@@ -431,7 +240,7 @@ param.check <- function(user, template){
 
 # check parameters - function
 validate_and_finalize_args <- function(
-    sampling, fitted, niter, nburnin, thin, thin2, nchain,
+    sampling, niter, nburnin, thin, nchain,
     prior, init, indexprior, link
 ) {
   if (!is.logical(sampling)){
@@ -440,12 +249,7 @@ validate_and_finalize_args <- function(
   if (is.logical(sampling) & (length(sampling) > 1)){
     stop("'sampling' argument should be scalar.")
   }
-  if (!is.logical(fitted)){
-    stop("'fitted' argument should be logical.")
-  }
-  if (is.logical(fitted) & (length(fitted) > 1)){
-    stop("'fitted' argument should be scalar.")
-  }
+
   if (!is.numeric(niter) || length(niter) != 1 || is.na(niter)){
     stop("'niter' argument should be numeric scalar.")
   }
@@ -455,17 +259,13 @@ validate_and_finalize_args <- function(
   if (!is.numeric(thin) || length(thin) != 1 || is.na(thin)){
     stop("'thin' argument should be numeric scalar.")
   }
-  if (!is.null(thin2)){
-    if (!is.numeric(thin2) || length(thin2) != 1 || is.na(thin2)){
-      stop("'thin2' argument should be numeric scalar.")
-    }
-  }
+
   if (!is.numeric(nchain) || length(nchain) != 1 || is.na(nchain)){
     stop("'nchain' argument should be numeric scalar.")
   }
 
   # Prior & init
-  priorlist <- prior.param.default(indexprior, link)
+  priorlist <- prior_param_default(indexprior, link)
   if (!is.null(prior) & param.check(prior, priorlist)){
     priorlist_final <- modifyList(priorlist, prior, keep.null = TRUE)
   } else if (is.null(prior)){
@@ -473,7 +273,7 @@ validate_and_finalize_args <- function(
   }
 
   # Initial value
-  initlist <- init.param.default(indexprior, link)
+  initlist <- init_param_default(indexprior, link)
   if (!is.null(init) & param.check(init, initlist)){
     initlist_final <- modifyList(initlist, init, keep.null = TRUE)
   } else if (is.null(init)){
@@ -506,4 +306,239 @@ pred_fitted <- nimbleFunction(
     return(pred)
   }
 )
+
+# Make samples into one matrix
+sampleBind <- function(mcmc.out, nchain){
+  samples <- NULL
+  if (nchain == 1 & !is.list(mcmc.out)){
+    samples <- mcmc.out
+  } else{
+    for (i in 1:nchain){
+      samples <- rbind(samples, mcmc.out[[i]])
+    }
+  }
+  return(samples)
+}
+
+# Get monitorable variables - used in getVarMonitor()
+expand_monitor <- function(vars) {
+  out <- character(0)
+  baseName <- character(0)
+
+  for (v in vars) {
+
+    # If there is no [], add
+    if (!grepl("\\[", v)) {
+      if (v == "sigma2") next
+      out <- c(out, v)
+      baseName <- c(baseName, v)
+      next
+    }
+
+    # extract variable name
+    base <- sub("\\[.*$", "", v)        # "index[1:4]" -> "index"
+    if (grepl("index", base)) next
+    if (base == "nu") next
+    baseName <- c(baseName, base)
+
+    # extract inside []
+    inside <- sub("^.*\\[", "", v)      # "index[1:4]"     -> "1:4]"
+    inside <- sub("\\]$", "", inside)   # "1:4]"           -> "1:4"
+
+    parts <- strsplit(inside, ",")[[1]]
+    parts <- trimws(parts)
+
+    first <- parts[1]
+
+    if (!grepl(":", first)) {
+      out <- c(out, v)
+      next
+    }
+
+    # a:b parsing
+    ab <- as.integer(strsplit(first, ":")[[1]])
+    a  <- ab[1]
+    b  <- ab[2]
+
+    rest <- ""
+    if (length(parts) > 1) {
+      rest <- paste0(", ", paste(parts[-1], collapse = ","))
+    }
+
+    for (k in seq(a, b)) {
+      out <- c(out, sprintf("%s[%d%s]", base, k, rest))
+    }
+  }
+
+  return(list(baseName = unique(baseName), out = out))
+}
+
+# Inside all the modeling functions (Extract coef, fitted, residuals etc.)
+bsimFit_pointest <- function(samples, dataX, datay){
+  # samples: combined samples of chain
+  # relevant information
+  p <- ncol(dataX)
+  N <- nrow(dataX)
+  namesIndex <- paste0("index[", 1:p, "]")
+  namesXlin <- paste0("Xlin[", 1:N, "]")
+  # link function
+  colsN <- colnames(samples)
+  namesLink <- grep("linkFunction", colsN, value = TRUE)
+  # has_comma <- grepl(",", lf_cols)
+  # namesLink <- ifelse(
+  #   has_comma,
+  #   paste0(lf_cols, paste0("linkFunction[", 1:N, ", 1]")),
+  #   paste0(lf_cols, paste0("linkFunction[", 1:N, "]"))
+  # )
+  namesSigma <- "sigma2"
+  namesVar <- colnames(dataX)
+  indexName <- colnames(dataX)
+  if (is.null(samples)){
+    coefficients <- ses_coef <- se <- linear.predictors <- fitted.values <- residuals <- gof <- NULL
+  } else{
+    ALLsamp <- samples
+
+
+    # Compute coefficients, sd, fitted.values, linear.predictors - mean
+    coefficients <- apply(ALLsamp[ ,namesIndex], 2, mean)
+    attr(coefficients, "names") <- indexName
+    ses_coef <- apply(ALLsamp[ ,namesIndex], 2, sd)
+    attr(ses_coef, "names") <- indexName
+    se <- mean(ALLsamp[ ,namesSigma])
+    linear.predictors <- apply(ALLsamp[ ,namesXlin], 2, mean)
+    fitted.values <- apply(ALLsamp[ ,namesLink], 2, mean)
+    residuals <- datay[,1] - as.vector(fitted.values)
+    gof <- mean(residuals^2) # residual sum of squares
+  }
+
+
+  outList <- list(coefficients = coefficients,
+                  ses_coef = ses_coef,
+                  se = se,
+                  residuals = residuals,
+                  linear.predictors = as.vector(linear.predictors),
+                  fitted.values = as.vector(fitted.values),
+                  gof = gof)
+
+  return(outList)
+
+}
+
+# Fitted plot algorithm
+plot_bsim_fitted <- function(result, interval){ # result: data.frame
+  idxValue <- 0; pred <- 0; LB <- 0; UB <- 0; truey <- 0
+
+  level <- result$level
+  if (is.null(result$truey)){
+
+    if (!interval){
+      df_pred_line <- results[order(results$idxValue), ]
+      A2 <- ggplot(df_pred_line, aes(x = idxValue)) +
+        geom_point(aes(y = pred), color = "grey20", alpha = 0.55, size = 1.6) +
+        geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
+        labs(x = "Index value", y = "Predicted",
+             title = paste0("Fitted curve"),
+             subtitle = "Points: observed, Line: posterior mean") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.title = element_text(face = "bold")
+        )
+
+    } else{
+      results2 <- data.frame(pred = result$fitted[,1],
+                             idxValue = result$idxValue, LB = result$fitted$LB,
+                             UB = result$fitted$UB)
+      df_pred_line2 <- results2[order(results2$idxValue), ]
+      A2 <- ggplot(df_pred_line2, aes(x = idxValue)) +
+        geom_ribbon(aes(ymin = LB, ymax = UB),
+                    fill = "firebrick", alpha = 0.12, colour = NA) +
+        geom_point(aes(y = pred), color = "grey20", alpha = 0.55, size = 1.6) +
+        geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
+        labs(x = "Index value", y = "Predicted",
+             title = paste0("Fitted curve with ", level, "% interval"),
+             subtitle = "Points: predicted, Line: posterior mean") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.title = element_text(face = "bold")
+        )
+    }
+    return(A2)
+  } else{
+    if (!interval){
+      results <- data.frame(truey = result$truey, pred = result$fitted,
+                            idxValue = result$idxValue)
+    } else{
+      results <- data.frame(truey = result$truey, pred = result$fitted[,1],
+                            idxValue = result$idxValue)
+    }
+
+
+    # 1) fitted vs. observed
+    if (!is.null(result$truey)){
+      rmse <- mean((results$truey-results$pred)^2)
+
+      A1 <- ggplot(results, aes(x = truey, y = pred)) +
+        geom_point(color = "black", alpha = 0.6) +
+        geom_abline(slope = 1, intercept = 0, color = "firebrick", linewidth = 0.8) +
+        theme_minimal(base_size = 14) +
+        labs(
+          title = "Fitted Plot",
+          x = "True",
+          y = "Predicted",
+          subtitle = paste("RMSE:", round(rmse, 4))
+        ) +
+        theme(
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.title = element_text(face = "bold"),
+          panel.grid.minor = element_blank()
+        )
+    }
+
+
+    # 2) index vs. y
+    if (!interval){
+      df_pred_line <- results[order(results$idxValue), ]
+      A2 <- ggplot(df_pred_line, aes(x = idxValue)) +
+        geom_point(aes(y = truey), color = "grey20", alpha = 0.55, size = 1.6) +
+        geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
+        labs(x = "Index value", y = "Response",
+             title = paste0("Fitted curve"),
+             subtitle = "Points: observed, Line: posterior mean") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.title = element_text(face = "bold")
+        )
+
+    } else{
+      results2 <- data.frame(truey = result$truey, pred = result$fitted[,1],
+                             idxValue = result$idxValue, LB = result$fitted$LB,
+                             UB = result$fitted$UB)
+      df_pred_line2 <- results2[order(results2$idxValue), ]
+      A2 <- ggplot(df_pred_line2, aes(x = idxValue)) +
+        geom_ribbon(aes(ymin = LB, ymax = UB),
+                    fill = "firebrick", alpha = 0.12, colour = NA) +
+        geom_point(aes(y = truey), color = "grey20", alpha = 0.55, size = 1.6) +
+        geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
+        labs(x = "Index value", y = "Response",
+             title = paste0("Fitted curve with ", level, "% interval"),
+             subtitle = "Points: observed, Line: posterior mean") +
+        theme_minimal(base_size = 12) +
+        theme(
+          panel.grid.minor = element_blank(),
+          plot.title = element_text(hjust = 0.5, face = "bold"),
+          axis.title = element_text(face = "bold")
+        )
+    }
+    return(A1 + A2)
+  }
+
+}
+
+
 

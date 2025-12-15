@@ -1,75 +1,65 @@
-#' Bayesian single-index regression with B-spline link and spike-and-slab prior
+#' Bayesian Single-Index Regression with B-Spline Link and Spike-and-Slab Prior
 #'
 #' @description Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}
 #' where the link \eqn{f(\cdot)} is represented by B-spline link function and the
 #' index vector \eqn{\theta} has spike-and-slab prior.
-#'
-#' @param x Numeric data.frame/matrix of predictors. Each row is an observation.
-#' @param y Numeric response vector/matrix.
-#' @param prior Optional named list of prior settings with sublists:
-#' \describe{
-#'     \item{\code{index}}{Spike and slab prior hyperparameters: Beta-binomial for variable selection indicator \eqn{\nu} (default \code{r1 = 1, r2 = 1}),
-#'     and normal distribution for selected variables \eqn{\theta} (default: \eqn{N(0, \sigma_{\theta}^{2})})}
-#'     \item{\code{link}}{B-spline basis and coefficient of B-spline setup.
-#'          \enumerate{
-#'          \item{\code{basis} For the basis of B-spline, \code{df} is the number of basis functions (default \code{21}), \code{degree} is the spline degree (default \code{2}) and \code{delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
-#'          \item{\code{beta} For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{mu}, and covariance \code{cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
-#' }}
-#'   \item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-#'         where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-#'         (default \code{shape = 0.001, rate = 100})}
-#'   }
-#' @param init Optional named list of initial values:
-#' \describe{
-#'      \item{\code{index}}{
-#'      \enumerate{
-#'      \item{\code{pi} Initial selecting variable probability. (default: \code{0.5})}
-#'      \item{\code{nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
-#'      \item{\code{index} Initial vector of index. By default, each element of indedx vector, which is chosen by \eqn{nu}, is proposed by normal distribution.}
-#'      }}
-#'      \item{\code{link}}{Initial spline coefficients (\code{beta}). By default,
-#'          \eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
-#'     where \eqn{X_{\theta}} is the B-spline basis design matrix.}
-#'   \item{\code{sigma2}}{Initial scalar error variance (default \code{0.01}).}
-#' }
-#' @param sampling Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.
-#' @param fitted Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("Xlin", "linkFunction", "beta")} is monitored for prediction.
-#' @param monitors2 Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- bsSpike(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.
-#' @param niter Integer. Total MCMC iterations (default \code{10000}).
-#' @param nburnin Integer. Burn-in iterations (default \code{1000}).
-#' @param thin Integer. Thinning for monitors1 (default \code{1}).
-#' @param thin2 Integer. Optional thinning for \code{monitors2} (default \code{1}).
-#' @param nchain Integer. Number of MCMC chains (default \code{1}).
-#' @param setSeed Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.
+#' @inheritParams bsFisher
 #'
 #' @details
 #' \strong{Model} The single–index model uses a \eqn{m}-order polynomial spline with \eqn{k} interior knots as follows:
-#' \eqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = x_i' \theta, i = 1,\cdots, n}
-#' and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a = min(t_i, i = 1, \cdots, n) - \delta},
-#' and \eqn{b = max(t_i, i = 1,\cdots, n) + \delta}. \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
+#' \deqn{f(t) = \sum_{j=1}^{m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = X_i' \theta, i = 1,\cdots, n}
+#' and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a_\theta = min(t_i, i = 1, \cdots, n) - \delta},
+#' and \eqn{b_\theta = max(t_i, i = 1,\cdots, n) + \delta}. \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
 #' prior for variable selection with binary indicator variable \eqn{\nu}.
 #'
 #' \strong{Priors}
 #' \itemize{
-#' \item Slab coefficients \eqn{\theta}: Gaussian \eqn{N(0, \sigma_\theta^2)}.
-#' \item Inclusion indicators \eqn{\nu}: Bernoulli(\eqn{\pi}).
-#' \item Inclusion probability \eqn{\pi}: Beta(\eqn{r_1, r_2}).
-#' \item Inverse-Gamma prior on \eqn{\sigma^2}: \eqn{\sigma^2 \sim \mathrm{IG}(a_\sigma, b_\sigma)}.
-#' \item Conditional on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients follow
-#'       \eqn{\beta = (\beta_1,\ldots,\beta_K)^\top \sim \mathcal{N}\!\big(\hat{\beta}_{\theta},\, \sigma^2 (X_{\theta}^\top X_{\theta})^{-1}\big)}.
+#' \item The variable selection indicator \eqn{\nu} has Beta–Bernoulli hierarchy prior. Beta hyper-prior on the Bernoulli–inclusion probability \eqn{w},
+#'     inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where  \eqn{n_\nu = \Sigma_{i=1}^{p}I(\nu_i = 1)}.
+#'     \eqn{r_1, r_2} are shape and rate parameter of beta distribution.
+#' \item Slab coefficients \eqn{\theta} have normal distribution with zero mean and \eqn{\sigma_\theta^2} variance.
+#' \item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
+#'        normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
+#'        covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
+#' \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 #' }
 #'
 #' \strong{Sampling}
 #' Samplers are automatically assigned by nimble.
 #'
-#' @return A \code{list} typically containing:
-#' \describe{
-#'   \item{\code{model}}{Nimble model}
-#'   \item{\code{sampler}}{Nimble sampler}
-#'   \item{\code{sampling}}{Posterior draws of \eqn{\nu}, \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-#'   \item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-#'   \item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+#' \strong{Prior hyper-parameters}
+#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \enumerate{
+#' \item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+#'     For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
+#'     \item Link function: B-spline basis and coefficient of B-spline setup.
+#'          \itemize{
+#'          \item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
+#'          \item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
 #' }
+#'   \item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+#'         (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
+#'         }
+#'
+#' \strong{Initial values}
+#' These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+#' \enumerate{
+#' \item Index vector:
+#'      \itemize{
+#'      \item{\code{index_pi} Initial selecting variable probability. (default: \code{0.5})}
+#'      \item{\code{index_nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
+#'      \item{\code{index} Initial vector of index. By default, each element of index vector, which is chosen by \eqn{\nu}, is proposed by normal distribution.}
+#'      }
+#'      \item Link function: Initial spline coefficients (\code{link_beta}). By default,
+#'          \eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
+#'     where \eqn{X_{\theta}} is the B-spline basis design matrix.
+#'   \item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
+#'
+#' }
+#'
+#'
+#' @inherit bsFisher return
 #'
 #' @examples
 #' \donttest{
@@ -81,16 +71,23 @@
 #' X <- matrix(runif(n * d, -1, 1), nrow = n)
 #' index_vals <- as.vector(X %*% theta)
 #' y <- f(index_vals) + rnorm(n, 0, sigma)
+#' simdata <- data.frame(x = X, y = y)
+#' colnames(simdata) <- c(paste0("X", 1:4), "y")
 #'
 #' # One tool version
-#' fit <- bsSpike(X, y)
+#' fit1 <- bsSpike(y ~ ., data = simdata,
+#'                 niter = 5000, nburnin = 1000, nchain = 1)
 #'
 #' # Split version
-#' models <- bsSpike(X, y, sampling = FALSE)
+#' models <- bsSpike_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' mcmc.out <- runMCMC(Ccompile$mcmc, niter = 10000, nburnin = 1000, thin = 1,
-#'                    nchains = 1, setSeed = TRUE, inits = models$input$init,
+#' nimSampler <- get_sampler(Ccompile)
+#' initList <- getInit(models)
+#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#'                    nchains = 1, setSeed = TRUE, inits = initList,
 #'                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' fit2 <- as_bsim(models, mcmc.out)
+#' summary(fit2)
 #' }
 #'
 #' @references
@@ -104,28 +101,55 @@
 #' Bayesian multiple index models for environmental mixtures.
 #' \emph{Biometrics}, 79(1), 462-474.
 #'
+#' @name bsSpike
 #' @export
+bsSpike <- function(formula, data,
+                    prior = NULL,
+                    init = NULL,
+                    monitors = NULL, niter = 10000, nburnin=1000,
+                    thin = 1, nchain = 1, setSeed = FALSE
+){
+  return(
+    bsSpike.default(formula = formula, data  = data,
+                    prior = prior,
+                    init = init,
+                    sampling = TRUE,
+                    monitors = monitors, niter = niter, nburnin = nburnin,
+                    thin = thin, nchain = nchain, setSeed = setSeed)
+    )
 
-bsSpike <- function(x, y,
-                    prior = list(
-                      index = list(nu = list(r1 = 1, r2 = 1),
-                                   index = list(sigma_theta = 0.25)),
-                      link = list(basis = list(df = 21, degree = 2, delta = 0.01),
-                                  beta = list(mu = NULL, cov = NULL)),
-                      sigma2  = list(shape = 0.001, rate = 100)),
-                    init = list(index = list(pi = 0.5, nu = NULL, index = NULL),
-                                link = list(beta = NULL),
-                                sigma2 = 0.01),
-                    sampling = TRUE, fitted = TRUE,
-                    monitors2 = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, thin2 = NULL, nchain = 1, setSeed = FALSE
+}
+
+#' @rdname bsSpike
+#' @export
+bsSpike_setup <- function(formula, data,
+                          prior = NULL,
+                          init = NULL,
+                          monitors = NULL, niter = 10000, nburnin=1000,
+                          thin = 1, nchain = 1, setSeed = FALSE){
+  return(
+    bsSpike.default(formula = formula, data  = data,
+                    prior = prior,
+                    init = init,
+                    sampling = FALSE,
+                    monitors = monitors, niter = niter, nburnin = nburnin,
+                    thin = thin, nchain = nchain, setSeed = setSeed)
+  )
+}
+
+bsSpike.default <- function(formula, data,
+                    prior = NULL,
+                    init = NULL,
+                    sampling = TRUE,
+                    monitors = NULL, niter = 10000, nburnin=1000,
+                    thin = 1, nchain = 1, setSeed = FALSE
 ){
   start1 <- Sys.time()
   index_raw <- 0; nu <- 0
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
-    sampling, fitted, niter, nburnin, thin, thin2, nchain,
+    sampling, niter, nburnin, thin,  nchain,
     prior, init, "spike", "bspline"
   )
   prior <- checkOutput$priorlist_final
@@ -150,6 +174,7 @@ bsSpike <- function(x, y,
     "estBeta_fisher","gvcCV","transX_fisher",
     "pred_bsplineFisher","indexSampler_bspline_fisher","betaSampler_bspline_fisher",
 
+
     "pred_fitted"
   )
 
@@ -159,19 +184,47 @@ bsSpike <- function(x, y,
 
 
   # check data dimension
-  if (!is.matrix(x) & !is.data.frame(x)){stop("x is not matrix/data.frame.")}
-  if (!is.vector(y) & !is.matrix(y)){stop("y is not vector or matrix.")}
-  if (is.matrix(y)){
-    if ((ncol(y) != 1)){
-      stop("y should be scalar vector or matrix.")
+  # Data
+  if (!is.data.frame(data)){
+    stop("data should be an data.frame.")
+  }
+
+  Call <- match.call()
+  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+  if (indx[1] == 0L)
+    stop("a 'formula' argument is required")
+  temp <- Call[c(1L,indx)]
+  temp[[1L]] <- quote(stats::model.frame)
+  m <- eval.parent(temp)
+  Terms <- attr(m,"terms")
+  formula <- as.character(formula)
+  response.name <- formula[2]
+  data.name <- strsplit(formula[3]," \\+ ")[[1]]
+  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+  if(data.name[1]=="."){
+    tot.name <- response.name
+  } else{
+    tot.name <- c(response.name ,data.name)
+  }
+  if(!int.flag){
+    stop("BayesSIM cannot treat interaction terms")
+  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+           length(tot.name)){
+    stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                           tot.name))[-c(1:ncol(data))]],collapse=","),
+               " is/are not in your data"))
+  }else{
+    origY <- data[ ,response.name]
+    if(data.name[1]=="."){
+      origX <- data[,colnames(data) != response.name]
+    }else {
+      origX <- data[ ,data.name,drop=FALSE]
     }
   }
-  X <- as.matrix(x)
-  Y <- matrix(y, ncol = 1)
 
-  if (nrow(X) != nrow(Y)){
-    stop("x and y have different dimension.")
-  }
+  # X = origX, Y = origY
+  X <- as.matrix(origX)
+  Y <- as.matrix(origY)
 
   # data dimension
   N <- length(Y)
@@ -226,12 +279,12 @@ bsSpike <- function(x, y,
     b0 <- prior$index$nu$r2
   }
 
-  if (is.null(prior$index$index$sigma_theta)||
-      length(prior$index$index$sigma_theta) >= 2 ||
-      prior$index$index$sigma_theta < 0){
+  if (is.null(prior$index$sigma_theta)||
+      length(prior$index$sigma_theta) >= 2 ||
+      prior$index$sigma_theta < 0){
     stop("Prior index (sigma_theta) has incorrect value.")
   } else{
-    sigma_theta <- prior$index$index$sigma_theta
+    sigma_theta <- prior$index$sigma_theta
   }
 
   ## link- basis
@@ -341,19 +394,10 @@ bsSpike <- function(x, y,
 
   # Assign samplers
   message("Assign samplers")
-  monitorsList <- c("nu", "index", "sigma2")
-  if (fitted){
-    monitorsList <- c(monitorsList, "linkFunction", "Xlin", "beta")
-  }
-  if (is.null(monitors2)){
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList,
-                              print = FALSE))
-  } else{
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList, monitors2 = monitors2,
-                              print = FALSE))
-  }
+  monitorsList <- c("nu", "index", "sigma2", "linkFunction", "Xlin", "beta", "index_raw", "pi")
+  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                             monitors = monitorsList,
+                                             print = FALSE))
 
   mcmcConf$removeSamplers(c("beta"))
   mcmcConf$addSampler(target = c("beta"),
@@ -364,113 +408,114 @@ bsSpike <- function(x, y,
   mcmcConf$setSamplerExecutionOrder(c(1, (p+3):(2*p+2), 2:(p+1), (2*p+3), (p+2)))
 
   mcmc1 <- buildMCMC(mcmcConf)
-  end1 <- Sys.time()
+
 
   if (!sampling){
     mcmc.out <- NULL
-    fittedResult <- NULL
     sampMCMC <- NULL
+    samples <- NULL
 
   } else{
+    start2 <- Sys.time()
     # Compile
     message("Compile Model")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
     message("Compile MCMC")
     suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
                            resetFunctions = TRUE))
+    end2 <- Sys.time()
 
     # Sampling
-    start2 <- Sys.time()
     message("Run MCMC")
     mcmc.out <- NULL
     if (setSeed == FALSE){
       seedNum <- setSeed
     }
-    if (is.null(monitors2)){
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin,
-                          nchains = nchain, setSeed = seedNum,
-                          inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    } else{
-      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                          thin = thin, thin2 = thin2,
-                          nchains = nchain, setSeed = seedNum,
-                          inits = inits_list,
-                          summary = FALSE, samplesAsCodaMCMC = TRUE)
-    }
-    end2 <- Sys.time()
+    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                        thin = thin,
+                        nchains = nchain, setSeed = seedNum,
+                        inits = inits_list,
+                        summary = FALSE, samplesAsCodaMCMC = TRUE)
 
     # output
-
-    start3 <- Sys.time()
-    samples <- NULL
+    ## combine all chains
     sampMCMC <- mcmc.out
-    # if (enableWAIC){
-    #   sampMCMC <- mcmc.out$samples
+    samples <- sampleBind(sampMCMC, nchain)
+
+    # if (fitted){ # posterior fitted value output (mean, median, sd)
+    #   message("Compute posterior fitted value")
+    #   # namesBeta <- paste0("index", 1:p)
+    #   namesLink <- paste0("linkFunction[", 1:N, ", 1]")
+    #   namesSigma <- "sigma2"
+    #   LinkFunction_samples <- samples[, namesLink]
+    #   sigma2_samples <- samples[, namesSigma]
+    #   n <- nrow(LinkFunction_samples)
+    #   p <- ncol(LinkFunction_samples)
+    #
+    #   message("Compile function..")
+    #   suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
+    #   message("Computing predicted value..")
+    #   fittedValue <- cpred_fitted(LinkFunction_samples,
+    #                                sigma2_samples)
+    #   fittedResult <- fittedValue
+    #
     # } else{
-    #   sampMCMC <- mcmc.out
+    #   fittedResult <- NULL
     # }
-    if (nchain > 1){
-      for (i in 1:nchain){
-        samples <- rbind(samples, mcmc.out[[i]])
-      }
-    } else if (nchain == 1){
-      samples <- mcmc.out
-    }
-    if (fitted){ # posterior fitted value output (mean, median, sd)
-      message("Compute posterior fitted value")
-      # namesBeta <- paste0("index", 1:p)
-      namesLink <- paste0("linkFunction[", 1:N, ", 1]")
-      namesSigma <- "sigma2"
-      LinkFunction_samples <- samples[, namesLink]
-      sigma2_samples <- samples[, namesSigma]
-      n <- nrow(LinkFunction_samples)
-      p <- ncol(LinkFunction_samples)
-
-      message("Compile function..")
-      suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
-      message("Computing predicted value..")
-      fittedValue <- cpred_fitted(LinkFunction_samples,
-                                   sigma2_samples)
-      fittedResult <- fittedValue
-
-    } else{
-      fittedResult <- NULL
-    }
 
   }
-  end3 <- Sys.time()
+  end1 <- Sys.time()
 
   ## Input options 정리
   if (!sampling){
     time <- NULL
-  } else if (!fitted){
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    time <- list(samp = samp_time)
   } else{
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    fitted_time <- difftime(end3, start3, units = "secs")
-    time <- list(samp = samp_time, fitted = fitted_time)
+    # total time - compile time
+    time_wo_compile <- difftime(end1, start1, units = "secs") -
+      difftime(end2, start2, units = "secs")
+
+    time <- list(time_wo_compile = time_wo_compile)
+
   }
 
-  inputOptions <- list(data = list(x = X, y = Y),
-                       prior = list(index = list(nu = list(r1 = a0, r2 = b0),
-                                                 index = list(sigma_theta = sigma_theta)),
+  # Results ------------------------------------------------------------------
+  #Model point estimation
+  modelESTLIST <- bsimFit_pointest(samples, X, Y)
+  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
+                       prior = list(index = list(nu = list(r1 = a0, r2 = b0),sigma_theta = sigma_theta),
                                     link = list(basis = list(df = df, degree = degree, delta = delta),
                                                 beta = list(mu = mubeta, cov = covbeta)),
                                     sigma2 = list(shape = a_sig, rate = b_sig)),
                        init = inits_list,
+                       samplingOptions = list(sampling = sampling,
+                                              monitors = monitors, niter = niter,
+                                              nburnin = nburnin, thin = thin,
+                                              nchain = nchain, setSeed = setSeed),
                        time = time)
 
-  out <- list(model = simpleModel,
-              sampler = mcmc1,
-              sampling = sampMCMC,
-              fitted = fittedResult,
-              input = inputOptions,
-              modelName = "bsSpike")
-  class(out) = "bsimSpline"
+  if (sampling){
+    out <- list(coefficients = modelESTLIST$coefficients,
+                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                residuals = modelESTLIST$residuals,
+                fitted.values = modelESTLIST$fitted.values,
+                linear.predictors = modelESTLIST$linear.predictors,
+                gof = modelESTLIST$gof,
+                samples = sampMCMC, # return of runMCMC
+                input = inputOptions,
+                defModel = simpleModel, defSampler = mcmc1,
+                modelName = "bsSpike")
+
+    class(out) = "bsim"
 
 
+  } else{
+    out <- list(input = inputOptions,
+                defModel = simpleModel,
+                defSampler = mcmc1,
+                modelName = "bsSpike")
+
+    class(out) = "bsimSetup"
+
+  }
   return(out)
 }

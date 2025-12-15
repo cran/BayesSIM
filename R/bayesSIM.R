@@ -1,119 +1,102 @@
-#' Integrated function for Bayesian single-index regression
+#' Integrated Function for Bayesian Single-Index Regression
 #' @importFrom utils modifyList
 #' @description
-#' Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} in one function.
-#'
-#' @param x Numeric data.frame/matrix of predictors. Each row is an observation.
-#' @param y Numeric response numeric vector/matrix. Other types  are not available.
+#' Fitting a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} in single integrated function.
+#' @inheritParams bsFisher
 #' @param indexprior Index vector prior among \code{"fisher"} (default), \code{"sphere"}, \code{"polar"}, \code{"spike"}.
 #' @param link Link function among \code{"bspline"} (default), \code{"gp"}
-#' @param prior List of prior hyperparameters of index, link function, and sigma2. For further details,
-#' refer to \code{help()} of designated function.
-#' @param init List of initial values of index, link function, and sigma2. For further details,
-#' refer to \code{help()} of designated function.
-#' @param sampling Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.
-#' @param fitted Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("Xlin", "linkFunction", "beta")} is monitored for prediction.
-#' @param method Character, gpSphere model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
+#' @param prior Optional named list of prior settings. Further descriptions are in every specific model's \strong{Details} section.
+#' @param init Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+#' Further descriptions are in every specific model's \strong{Details} section.
+#' @param method Character, `gpSphere` model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
 #' Assign one sampler method. Empirical sampling approach is recommended in high-dimensional data. By default, fully Bayesian approach is assigned.
-#' @param lowerB This parameter is only for gpSphere model. Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
+#' @param lowerB This parameter is only for `gpSphere` model. Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
 #' When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 #' By default, the lower bounds are \code{-1} for the index vector and \code{-1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.
-#' @param upperB This parameter is only for gpSphere model. Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
+#' @param upperB This parameter is only for `gpSphere` model. Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
 #' When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 #' By default, the upper bounds are \code{1} for the index vector and \code{1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.
-#' @param monitors2 Optional character vector of additional monitor nodes. Available: \code{c("Xlin", "k", "knots", "beta")}.
-#' @param niter Integer. Total MCMC iterations (default \code{10000}).
-#' @param nburnin Integer. Burn-in iterations (default \code{1000}).
-#' @param thin Integer. Thinning for monitors1 (default \code{1}).
-#' @param thin2 Integer. Optional thinning for \code{monitors2} (default \code{1}).
-#' @param nchain Integer. Number of MCMC chains (default \code{1}). If >1, different initial values are assigned for each chain.
-#' @param setSeed Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.
+#' @param x A fitted `BayesSIM` object.
+#' @param digits Number of digits to display.
+#' @param ... Additional arguments.
 #'
-#' @return A \code{list} typically containing:
-#' \describe{
-#'   \item{\code{model}}{Nimble model}
-#'   \item{\code{sampler}}{Nimble sampler}
-#'   \item{\code{sampling}}{Posterior draws of samples with \code{coda mcmc} object. \eqn{\nu}(spike-and slab prior), \eqn{\theta}, \eqn{\sigma^2}, \code{monitors2} variables are included.}
-#'   \item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-#'   \item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
-#' }
+#'
+#' @inherit bsFisher return
 #'
 #' @details
 #' Integrated function for Bayesian single-index model. Default model is von-Mises Fisher distribution for index vector with B-spline link function.
 #'
 #' @seealso [bsFisher()], [bsSphere()], [bsPolar()], [bsSpike()],
-#' [gpFisher()], [gpSphere()], [gpPolar()], [gpSpike()]
+#' [gpFisher()], [gpSphere()], [gpPolar()], [gpPolarHigh()], [gpSpike()]
 #'
 #' @examples
 #' \donttest{
 #' set.seed(123)
-#' n <- 100; d <- 4
+#' n <- 200; d <- 4
 #' theta <- c(2, 1, 1, 1); theta <- theta / sqrt(sum(theta^2))
 #' f <- function(u) u^2 * exp(u)
 #' sigma <- 0.5
 #' X <- matrix(runif(n * d, -1, 1), nrow = n)
 #' index_vals <- as.vector(X %*% theta)
 #' y <- f(index_vals) + rnorm(n, 0, sigma)
+#' simdata <- data.frame(x = X, y = y)
+#' colnames(simdata) <- c(paste0("X", 1:4), "y")
 #'
-#' # One-call version
-#' fit <- BayesSIM(X, y, indexprior = "sphere", link = "bspline")
+#' # One tool version - bsFisher
+#' fit1 <- BayesSIM(y ~ ., data = simdata,
+#'                  niter = 5000, nburnin = 1000,
+#'                  nchain = 1)
 #'
-#' # Split version
-#' models <- BayesSIM(X, y, indexprior = "sphere", link = "bspline", sampling = FALSE)
+#' # Split version- bsFisher
+#' models <- BayesSIM_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-#'                     nchains = 1, setSeed = TRUE, init = models$input$init,
-#'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' nimSampler <- get_sampler(Ccompile)
+#' initList <- getInit(models)
+#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#'                    nchains = 1, setSeed = TRUE, inits = initList,
+#'                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' fit2 <- as_bsim(models, mcmc.out)
+#' summary(fit2)
 #' }
+#' @name BayesSIM
 #' @export
-BayesSIM <- function(x, y, indexprior = "fisher", link = "bspline",
+BayesSIM <- function(formula, data,
+                     indexprior = "fisher", link = "bspline",
                      prior = NULL, init = NULL,
-                     sampling = TRUE, fitted = TRUE, method = "FB",
+                     method = "FB",
                      lowerB = NULL, upperB = NULL,
-                     monitors2 = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, thin2 = NULL, nchain = 1, setSeed = FALSE){
-  # modifyList <- 0
-
-  # check sampling, prior, init parameters for independent execution
-  # checkOutput <- validate_and_finalize_args(
-  #   sampling, fitted, niter, nburnin, thin, thin2, nchain,
-  #   prior, init, indexprior, link
-  # )
-  # priorlist_final <- checkOutput$priorlist_final
-  # initlist_final <- checkOutput$initlist_final
-
+                     monitors = NULL, niter = 10000, nburnin=1000,
+                     thin = 1, nchain = 1, setSeed = FALSE){
+  # prior_list <- 0; init_list <- 0
 
 
   if (link == "bspline"){
     if (indexprior == "fisher"){
 
-      fit <- bsFisher(x, y,
+      fit <- bsFisher(formula = formula, data = data,
                       prior = prior, init = init,
-                      sampling, fitted,monitors2, niter, nburnin,
-                      thin, thin2, nchain, setSeed)
+                      monitors = monitors, niter = niter, nburnin = nburnin,
+                      thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "sphere"){
-      fit <- bsSphere(x, y,
+      fit <- bsSphere(formula = formula, data = data,
                       prior = prior, init = init,
-                      sampling, fitted,
-                      monitors2, niter, nburnin,
-                      thin, thin2, nchain, setSeed)
+                      monitors = monitors, niter = niter, nburnin = nburnin,
+                      thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "polar"){
-      fit <- bsPolar(x, y,
+      fit <- bsPolar(formula = formula, data = data,
                      prior = prior, init = init,
-                     sampling, fitted,
-                     monitors2, niter, nburnin,
-                     thin, thin2, nchain, setSeed)
+                     monitors = monitors, niter = niter, nburnin = nburnin,
+                     thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "spike"){
-      fit <- bsSpike(x, y,
+      fit <- bsSpike(formula = formula, data = data,
                      prior = prior, init = init,
-                     sampling, fitted,
-                     monitors2, niter, nburnin,
-                     thin, thin2, nchain, setSeed)
+                     monitors = monitors, niter = niter, nburnin = nburnin,
+                     thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else{
       stop("Wrong index prior name!")
@@ -121,39 +104,120 @@ BayesSIM <- function(x, y, indexprior = "fisher", link = "bspline",
 
   } else if (link == "gp"){
     if (indexprior == "fisher"){
-      fit <- gpFisher(x, y,
+      fit <- gpFisher(formula = formula, data = data,
                       prior = prior, init = init,
-                      sampling, fitted,
-                      monitors2, niter, nburnin,
-                      thin, thin2, nchain, setSeed)
+                      monitors = monitors, niter = niter, nburnin = nburnin,
+                      thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "sphere"){
-      fit <- gpSphere(x, y,
+      fit <- gpSphere(formula = formula, data = data,
                       prior = prior, init = init,
-                      sampling, fitted, method, lowerB, upperB,
-                      monitors2, niter, nburnin,
-                      thin, thin2, nchain, setSeed)
+                      method = method, lowerB = lowerB, upperB = upperB,
+                      monitors = monitors, niter = niter, nburnin = nburnin,
+                      thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "polar"){
       if (ncol(x) >= 5){
-        fit <- gpPolarHigh(x, y,
+        fit <- gpPolarHigh(formula = formula, data = data,
                            prior = prior, init = init,
-                           sampling, fitted,
-                           monitors2, niter, nburnin,
-                           thin, thin2, nchain, setSeed)
+                           monitors = monitors, niter = niter, nburnin = nburnin,
+                           thin = thin, nchain = nchain, setSeed = setSeed)
       } else{
-        fit <- gpPolar(x, y,
+        fit <- gpPolar(formula = formula, data = data,
                        prior = prior, init = init,
-                       sampling, fitted,
-                       monitors2, niter, nburnin,
-                       thin, thin2, nchain, setSeed)
+                       monitors = monitors, niter = niter, nburnin = nburnin,
+                       thin = thin, nchain = nchain, setSeed = setSeed)
       }
     } else if (indexprior == "spike"){
-      fit <- gpSpike(x, y,
+      fit <- gpSpike(formula = formula, data = data,
                      prior = prior, init = init,
-                     sampling, fitted,
-                     monitors2, niter, nburnin,
-                     thin, thin2, nchain, setSeed)
+                     monitors = monitors, niter = niter, nburnin = nburnin,
+                     thin = thin, nchain = nchain, setSeed = setSeed)
+
+    } else{
+      stop("Wrong index prior name!")
+    }
+
+  } else{
+    stop("Wrong link function name!")
+  }
+
+  return(fit)
+
+}
+#' @rdname BayesSIM
+#' @export
+BayesSIM_setup <- function(formula, data,
+                     indexprior = "fisher", link = "bspline",
+                     prior = NULL, init = NULL,
+                     method = "FB",
+                     lowerB = NULL, upperB = NULL,
+                     monitors = NULL, niter = 10000, nburnin=1000,
+                     thin = 1, nchain = 1, setSeed = FALSE){
+  # modifyList <- 0
+  # prior_list <- 0; init_list <- 0
+
+  if (link == "bspline"){
+    if (indexprior == "fisher"){
+
+      fit <- bsFisher_setup(formula = formula, data = data,
+                            prior = prior, init = init,
+                            monitors, niter, nburnin,
+                            thin, nchain, setSeed)
+
+    } else if (indexprior == "sphere"){
+      fit <- bsSphere_setup(formula = formula, data = data,
+                            prior = prior, init = init,
+                            monitors, niter, nburnin,
+                            thin, nchain, setSeed)
+
+    } else if (indexprior == "polar"){
+      fit <- bsPolar_setup(formula = formula, data = data,
+                           prior = prior, init = init,
+                           monitors, niter, nburnin,
+                           thin, nchain, setSeed)
+
+    } else if (indexprior == "spike"){
+      fit <- bsSpike_setup(formula = formula, data = data,
+                           prior = prior, init = init,
+                           monitors, niter, nburnin,
+                           thin, nchain, setSeed)
+
+    } else{
+      stop("Wrong index prior name!")
+    }
+
+  } else if (link == "gp"){
+    if (indexprior == "fisher"){
+      fit <- gpFisher_setup(formula = formula, data = data,
+                            prior = prior, init = init,
+                            monitors, niter, nburnin,
+                            thin, nchain, setSeed)
+
+    } else if (indexprior == "sphere"){
+      fit <- gpSphere_setup(formula = formula, data = data,
+                            prior = prior, init = init,
+                            method, lowerB, upperB,
+                            monitors, niter, nburnin,
+                            thin, nchain, setSeed)
+
+    } else if (indexprior == "polar"){
+      if (ncol(x) >= 5){
+        fit <- gpPolarHigh_setup(formula = formula, data = data,
+                                 prior = prior, init = init,
+                                 monitors, niter, nburnin,
+                                 thin, nchain, setSeed)
+      } else{
+        fit <- gpPolar_setup(formula = formula, data = data,
+                             prior = prior, init = init,
+                             monitors, niter, nburnin,
+                             thin, nchain, setSeed)
+      }
+    } else if (indexprior == "spike"){
+      fit <- gpSpike_setup(formula = formula, data = data,
+                           prior = prior, init = init,
+                           monitors, niter, nburnin,
+                           thin, nchain, setSeed)
 
     } else{
       stop("Wrong index prior name!")

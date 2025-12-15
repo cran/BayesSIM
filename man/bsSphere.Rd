@@ -2,94 +2,73 @@
 % Please edit documentation in R/bsSphere.R
 \name{bsSphere}
 \alias{bsSphere}
-\title{Bayesian single-index regression with B-spline link and half-unit sphere prior}
+\alias{bsSphere_setup}
+\title{Bayesian Single-Index Regression with B-Spline Link and Half-Unit Sphere Prior}
 \usage{
 bsSphere(
-  x,
-  y,
-  prior = list(index = list(nu = list(r1 = 1, r2 = 1)), link = list(knots = list(lambda_k
-    = 5, maxknots = NULL), basis = list(degree = 2), beta = list(mu = NULL, tau = NULL,
-    Sigma0 = NULL)), sigma2 = list(shape = 0.001, rate = 0.001)),
-  init = list(index = list(nu = NULL, index = NULL), link = list(k = NULL, knots = NULL,
-    beta = NULL), sigma2 = 0.01),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+bsSphere_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response vector/matrix.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{ \code{nu} is binary inclusion indicators prior for variable selection in the index:
-\code{list(r1, r2)} gives the Beta hyperprior on the Bernoulli–inclusion probability \eqn{w},
-inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} (default \code{r1 = 1, r2 = 2}).}
-\item{\code{link}}{ B-spline knots, basis and coefficient setup.
-\enumerate{
-\item{\code{knots} Free-knot prior for the spline. \code{lambda_k} is the Poisson mean for the number of
-interior knot \eqn{k} (default \code{5}). \code{maxknots} is the maximum number of interior knots.
-If \code{maxknots} is \code{NULL}, the number of interior knots is randomly drawn from a Poisson distribution.}
-\item{\code{basis} For the basis of B-spline,  \code{degree} is the spline
-degree (default \code{2}).}
-\item{\code{beta} For the coefficient of B-spline, conjugate normal prior on \eqn{\beta} with covariance \eqn{\tau \Sigma_0} is assigned.
-By default, \code{mu} is a zero vector, \code{tau} is set to the sample size,
-and \code{Sigma0} is the identity matrix of dimension \eqn{1 + k + m},
-where \eqn{k} is the number of interior knots and \eqn{m} is the spline order (degree + 1).}}
-}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution. (default \code{shape = 0.001, rate = 0.001}).
-Small values for shape and rate parameters yield a weakly-informative prior on \eqn{\sigma^{2}}.}
-}}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{\code{nu} is binary vector indicating active predictors for the index.
-\code{index} is initial unit-norm index vector \eqn{\theta} (automatically normalized if necessary, with the first nonzero element made positive for identifiability).
-The vector length must match the number of columns in data \code{x}.
-Ideally, positions where \code{nu} has a value of 1 should correspond to nonzero elements in \eqn{\theta}; elements corresponding to \code{nu} = 0 will be set to zero.}
-\item{\code{link}}{\code{k} is initial number of interior knots. \code{knots} is initial vector of interior knot positions in \eqn{[0, 1]}, automatically scaled to the true boundary.
-Length of this vector should be equal to the initial value of \code{k}.
-\code{beta} is initial vector of spline coefficients. Length should be equal to the initial number of basis functions with intercept (\eqn{1 + k + m}).}
-\item{\code{sigma2}}{Initial scalar error variance. (default \code{0.01})}
-}}
-
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and
-\code{c("linkFunction", "beta", "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")} is monitored for prediction.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- bsSphere(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for monitors1 (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\nu}, \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-\item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
@@ -99,23 +78,58 @@ index vector \eqn{\theta} is on half-unit sphere.
 }
 \details{
 \strong{Model} The single–index model uses a \eqn{m}-order polynomial spline with \eqn{k} interior knots and intercept as follows:
-\eqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = x_i' \theta, i = 1,\cdots, n}
-and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k+1}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a = min(t_i, i = 1, \cdots, n)},
-and \eqn{b = max(t_i, i = 1,\cdots, n)}. Variable selection is encoded by a binary vector \eqn{\nu}, equivalently
+\deqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = X_i' \theta, i = 1,\cdots, n}
+and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k+1}} are spline coefficients and \eqn{a_\theta}, \eqn{ b_\theta} are boundary knots where \eqn{a_{\theta} = min(t_i, i = 1, \cdots, n)},
+and \eqn{b_{\theta} = max(t_i, i = 1,\cdots, n)}. Variable selection is encoded by a binary vector \eqn{\nu}, equivalently
 setting components of \eqn{\theta} to zero when \eqn{\nu_i = 0}.
 
 \strong{Priors}
 \itemize{
-\item Free‑knot prior: \eqn{k \sim \mathrm{Poisson}(\lambda_k)}, knot locations \eqn{\xi_i, i = 1,...,k} via a Dirichlet prior on the scaled interval.
-\item Beta–Bernoulli hierarchy for \eqn{\nu}, yielding a Beta–Binomial prior.
-\item Spherical prior on the index: uniform on the half‑sphere of dimension \eqn{n_\nu}with first nonzero positive.
-\item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration and a lower‑dimensional marginal target for RJMCMC.
+\item The variable selection indicator \eqn{\nu} has Beta–Bernoulli hierarchy prior. Beta hyper-prior on the Bernoulli–inclusion probability \eqn{w},
+inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where  \eqn{n_\nu = \Sigma_{i=1}^{p}I(\nu_i = 1)}.
+\eqn{r_1, r_2} are shape and rate parameter of beta distribution.
+\item Free‑knot prior: the number of knots \eqn{k} with mean \eqn{\lambda_k}. The knot locations \eqn{\xi_i, i = 1,...,k} have a Dirichlet prior on the scaled interval \eqn{[0, 1]}.
+\item Index vector prior is uniform on the half‑sphere of dimension \eqn{n_\nu} with first nonzero positive.
+\item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration for RJMCMC with covariance \eqn{\tau \Sigma_0}.
 }
 
 \strong{Sampling} Posterior exploration follows a hybrid RJMCMC with six move types:
 add/remove predictor \eqn{\nu}, update \eqn{\theta}, add/delete/relocate a knot. The \eqn{\theta} update is a random‑walk
-Metropolis via local rotations in a two‑coordinate subspace; knot moves use simple proposals with tractable acceptance ratios.
-Further sampling method is described in Wang(2009).
+Metropolis via local rotations in a two‑coordinate subspace. Knot changes use simple proposals with tractable acceptance ratios.
+Further sampling method is described in Wang (2009).
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively. (default \code{index_nu_r1 = 1, index_nu_r2 = 1}).
+\item Link function: B-spline knots, basis and coefficient setup.
+\itemize{
+\item{knots: Free-knot prior for the spline. \code{link_knots_lambda_k} is the Poisson mean for the number of
+interior knot \eqn{k} (default \code{5}). \code{link_knots_maxknots} is the maximum number of interior knots.
+If \code{link_knots_maxknots} is \code{NULL}, the number of interior knots is randomly drawn from a Poisson distribution.}
+\item{basis: For the basis of B-spline,  \code{link_basis_degree} is the spline
+degree (default \code{2}).}
+\item{beta: For the coefficient of B-spline,
+By default, \code{link_beta_mu} is a zero vector, \code{link_beta_tau} is set to the sample size,
+and \code{link_beta_Sigma0} is the identity matrix of dimension \eqn{1 + k + m},
+where \eqn{k} is the number of interior knots and \eqn{m} is the spline order.}}
+\item Error variance (\code{sigma2}): Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+Small values for shape and rate parameters yield a weakly-informative prior on \eqn{\sigma^{2}}. (default \code{sigma2_shape = 0.001, sigma2_rate = 0.001})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+\item Index vector: \code{index_nu} is binary vector indicating active predictors for the index.
+\code{index} is initial unit-norm index vector \eqn{\theta} (automatically normalized if necessary, with the first nonzero element made positive for identifiability).
+The vector length must match the number of predictor.
+Ideally, positions where \code{index_nu} has a value of 1 should correspond to nonzero elements in \eqn{\theta}; elements corresponding to \code{index_nu} = 0 will be set to zero.
+\item Link function: \code{link_k} is initial number of interior knots. \code{link_knots} is initial vector of interior knot positions in \eqn{[0, 1]}, automatically scaled to the true boundary.
+Length of this vector should be equal to the initial value of \code{k}.
+\code{link_beta} is initial vector of spline coefficients. Length should be equal to the initial number of basis functions with intercept (\eqn{1 + k + m}).
+\item Error variance (\code{sigma2}): Initial scalar error variance. (default \code{0.01})
+}
 }
 \examples{
 \donttest{
@@ -127,16 +141,23 @@ sigma <- 0.5
 X <- matrix(runif(n * d, -1, 1), nrow = n)
 index_vals <- as.vector(X \%*\% theta)
 y <- f(index_vals) + rnorm(n, 0, sigma)
+simdata <- data.frame(x = X, y = y)
+colnames(simdata) <- c(paste0("X", 1:4), "y")
 
-# One-call version
-fit <- bsSphere(X, y)
+# One tool version
+fit1 <- bsSphere(y ~ ., data = simdata,
+                 niter = 5000, nburnin = 1000, nchain = 1)
 
 # Split version
-models <- bsSphere(X, y, sampling = FALSE)
+models <- bsSphere_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, init = models$input$init,
-                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+                   nchains = 1, setSeed = TRUE, inits = initList,
+                   samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+summary(fit2)
 }
 
 }

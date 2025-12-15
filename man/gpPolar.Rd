@@ -2,129 +2,166 @@
 % Please edit documentation in R/gpPolar.R, R/gpPolarTemp.R
 \name{gpPolar}
 \alias{gpPolar}
+\alias{gpPolar_setup}
 \alias{gpPolarHigh}
-\title{Bayesian single-index regression with Gaussian process link and one-to-one polar transformation}
+\alias{gpPolarHigh_setup}
+\title{Bayesian Single-Index Regression with Gaussian Process Link and One-to-One Polar Transformation}
 \usage{
 gpPolar(
-  x,
-  y,
-  prior = list(index = list(psi = list(alpha = NULL)), link = list(kappa = list(min_kappa
-    = 0.5, max_kappa = 4, grid.width = 0.1)), sigma2 = list(shape = 2, rate = 0.01)),
-  init = list(index = list(psi = NULL), link = list(kappa = 2), sigma2 = 0.01),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+gpPolar_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 
 gpPolarHigh(
-  x,
-  y,
-  prior = list(index = list(psi = list(alpha = NULL)), link = list(kappa = list(min_kappa
-    = 0.5, max_kappa = 4, grid.width = 0.1)), sigma2 = list(shape = 2, rate = 0.01)),
-  init = list(index = list(psi = NULL), link = list(kappa = 2), sigma2 = 0.01),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+gpPolarHigh_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response numeric vector/matrix. Other types  are not available.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{ \code{psi} is polar angle and rescaled Beta distribution on \eqn{[0, \pi]} is assigned.
-Only shape parameter \code{alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
-By default, the shape parameter for each element of the polar vector is set to \code{5000}.}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{\code{link}}{{Prior for the smoothness parameter \code{kappa} in the Gaussian process kernel: Prior for \eqn{\kappa} is discrete uniform of equally spaced grid points
-in \eqn{[\kappa_{\text{min}}, \kappa_{\text{max}}}].
-\code{min_kappa} is minimum value of kappa (default \code{0.5}), \code{max_kappa} is maximum value of kappa (default \code{4}),
-and \code{grid.width} is space (default \code{0.1}).}}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 2, rate = 0.01})}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-}}
-
-\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-\describe{
-\item{\code{index}}{Initial vector of polar angle \code{psi} with \eqn{p-1} dimension. Each element of angle is between 0 and \eqn{\pi}.}
-\item{\code{link}}{Initial scalar scale parameter of covariance kernel \code{kappa}. (default: \code{2})}
-\item{\code{sigma2}}{Initial scalar error variance. (default: \code{0.01})}
-}}
-
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("linkFunction", "kappa", "Xlin")} is monitored for prediction.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpPolar(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for monitors1 (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-\item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
-Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} where
+Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}, where
 the index \eqn{\theta} is specified and computed via a one-to-one polar
-transformation, and the link \eqn{f(\cdot)} is represented with a Gaussian
-process.
+transformation, and the link \eqn{f(\cdot)} is represented with a Gaussian process.
 }
 \details{
 \strong{Model} The single–index model is specified as \eqn{Y_i = f(X_i'{\theta}) + \epsilon_i},
 where the index vector \eqn{\theta} lies on the unit sphere with (\eqn{\|\theta\|_2=1}) with non-zero first component
 to ensure identifiability and is parameterized via a one-to-one polar transformation with angle \eqn{\psi_1,...,\psi_{p-1}}.
+
+The mapping is
+\deqn{
+\begin{aligned}
+\theta_1 &= \sin(\psi_1),\\
+\theta_i &= \Big(\prod_{j=1}^{i-1}\cos(\psi_j)\Big)\sin(\psi_i), \quad i=2,\dots,p-1,\\
+\theta_p &= \prod_{j=1}^{p-1}\cos(\psi_j).
+\end{aligned}
+}
+The vector is then scaled to unit length.
+
 Sampling is  performed on the angular parameters \eqn{\theta} defining
 the index vector. The link function \eqn{f(\cdot)} is modeled by a Gaussian process
 prior with zero mean and an Ornstein–Uhlenbeck (OU) covariance kernel
-\eqn{\exp(-\kappa |t_i - t_j|), i, j = 1,\ldots, N}, where \eqn{\kappa} is a bandwidth (smoothness)
-parameter and \eqn{t_i, t_j} is index value(\eqn{t_i = X_i'\theta}).
+\eqn{\exp(-\kappa \cdot |t_i - t_j|), i, j = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
+parameter and \eqn{t_i, t_j} is index value (\eqn{t_i = X_i'\theta}).
 
 \strong{Priors}
 \itemize{
-\item Index vector: Uniform prior on the unit sphere (\eqn{\|\theta\|_2=1}).
-\item Bandwidth parameter \eqn{\kappa}: discrete uniform prior over a fixed grid.
-\item Error variance \eqn{\sigma^2}: Inverse–Gamma prior.
+\item \eqn{\psi} is \eqn{p-1} dimension of polar angle of index vector and re-scaled Beta distribution on \eqn{[0, \pi]} is assigned for prior.
+\item Prior for \eqn{\kappa} (bandwidth parameter) is discrete uniform of equally spaced grid points in \eqn{[\kappa_{\text{min}}, \kappa_{\text{max}}}].
+\item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 
 }
 
-\strong{Sampling} For \code{gpPolar()}, \eqn{\theta} is sampled by Metropolis-Hastings and updated with \eqn{f},
+\strong{Sampling} For \code{gpPolar}, \eqn{\theta} is sampled by Metropolis-Hastings and updated with \eqn{f},
 \eqn{\kappa} is chosen by grid search method that maximizes likelihood,
 \eqn{\sigma^2} are sampled from their full conditional
 distributions using Gibbs sampling.
-Since \eqn{\kappa} is sampled by grid search, more than 5 dimension of variables \code{gpPolarHigh()} is recommended.
-For \code{gpPolarHigh()}, all sampling parameters' samplers are assigned by nimble.
+Since \eqn{\kappa} is sampled by grid search, more than 5 dimension of variables \code{gpPolarHigh} is recommended.
+For \code{gpPolarHigh}, all sampling parameters' samplers are assigned by nimble.
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: Only shape parameter \code{index_psi_alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
+By default, the shape parameter for each element of the polar vector is set to \code{5000}.
+
+\item Link function:
+\code{link_kappa_min} is minimum value of kappa (default \code{0.5}), \code{link_kappa_max} is maximum value of kappa (default \code{4}),
+and \code{link_kappa_grid_width} is space (default \code{0.1}).
+\item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 2, sigma2_rate = 0.01})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+
+\item Index vector: Initial vector of polar angle \code{index_psi} with \eqn{p-1} dimension. Each element of angle is between 0 and \eqn{\pi}.
+\item Link function: Initial scalar scale parameter of covariance kernel \code{link_kappa}. (default: \code{2})
+\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
+}
 }
 \examples{
 \donttest{
@@ -147,24 +184,33 @@ y <- y-mean(y)
 f_all <- f
 x_all <- X
 y_all <- y
-data_frame <- cbind(x_all, y, f)
-colnames(data_frame) = c('x1', 'x2', 'x3', 'y','f')
+simdata <- cbind(x_all, y, f)
+simdata <- as.data.frame(simdata)
+colnames(simdata) = c('x1', 'x2', 'x3', 'y','f')
 
-# One-call version
-fit1 <- gpPolar(X, y)
-fit2 <- gpPolarHigh(X, y)
+# One tool version
+fit1 <- gpPolar(y ~ x1 + x2 + x3, data = simdata,
+                niter = 5000, nburnin = 1000, nchain = 1)
+fit2 <- gpPolarHigh(y ~ x1 + x2 + x3, data = simdata,
+                    niter = 5000, nburnin = 1000, nchain = 1)
 
 # Split version
-models1 <- gpPolar(X, y, sampling = FALSE)
-models2 <- gpPolarHigh(X, y, sampling = FALSE)
+models1 <- gpPolar_setup(y ~ x1 + x2 + x3, data = simdata)
+models2 <- gpPolarHigh_setup(y ~ x1 + x2 + x3, data = simdata)
 Ccompile1 <- compileModelAndMCMC(models1)
 Ccompile2 <- compileModelAndMCMC(models2)
-mcmc.out1 <- runMCMC(Ccompile1$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, init = models1$input$init,
+sampler1 <- get_sampler(Ccompile1)
+sampler2 <- get_sampler(Ccompile2)
+initList1 <- getInit(models1)
+initList2 <- getInit(models2)
+mcmc.out1 <- runMCMC(sampler1, niter = 5000, nburnin = 1000, thin = 1,
+                    nchains = 1, setSeed = TRUE, init = initList1,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-mcmc.out2 <- runMCMC(Ccompile2$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, init = models2$input$init,
+mcmc.out2 <- runMCMC(sampler2, niter = 5000, nburnin = 1000, thin = 1,
+                    nchains = 1, setSeed = TRUE, init = initList2,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit1_split <- as_bsim(models1, mcmc.out1)
+fit2_split <- as_bsim(models2, mcmc.out2)
 }
 
 }

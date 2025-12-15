@@ -1,42 +1,4 @@
-#' Dirichlet prior over knot locations on interval
-#' @description
-#' `dKnotsSimple()` evaluates a Dirichlet-based prior for \emph{K} internal
-#' knots \eqn{x_1 < \dots < x_K} on an interval \eqn{[a,b]} by placing a
-#' Dirichlet distribution on the normalized gaps
-#' \eqn{(x_1-a,\; x_2-x_1,\; \ldots,\; x_K-x_{K-1},\; b-x_K)/(b-a)}.
-#' `rKnotsSimple()` draws one set of \emph{K} knots from the same construction
-#' by first sampling the gap proportions and then taking the cumulative sum.
-#'
-#'
-#' @param x Numeric vector of length \eqn{K}; strictly increasing knot
-#'   locations in \eqn{[a,b]}.
-#' @param a Numeric scalar. Lower bound of the interval.
-#' @param b Numeric scalar. Upper bound of the interval.
-#' @param k integer (scalar); number of internal knots \eqn{K}.
-#' @param alpha numeric vector; first \eqn{K} elements are used as Dirichlet
-#'   parameters for the internal gaps.
-#' @param log logical; If TRUE, probabilities p are given as log(p)
-#' @param n Integer
-#'
-#' @details
-#' Let \eqn{K = k}. The prior uses parameters
-#' \eqn{\alpha_{\text{full}} = (\alpha_1,\ldots,\alpha_K, 1)} so that the last
-#' gap \eqn{b-x_K} receives a fixed weight of 1 while the \eqn{K} internal gaps
-#' are controlled by \eqn{\alpha = (\alpha_1,\ldots,\alpha_K)}. Since these functions are for
-#' choosing random knots initially, it may not appropriate for practical use.
-#'
-#' @returns
-#' - `dKnotsSimple()` returns a scalar numeric (density or log-density).
-#' - `rKnotsSimple()` returns a numeric vector of length \eqn{K} with ordered
-#'   knots in \eqn{(a,b)}. To register distribution for nimble, only one vector is generated.
-#'
-#' @note
-#' This implementation forms the gaps, normalizes by \eqn{b-a}, and uses
-#' `ddirch()`/`rdirch()` internally. Ensure \eqn{a<b}, \eqn{K\ge 1}, and that
-#' `alpha` has at least \eqn{K} elements.
-#'
-#' @name knotsSimple
-#' @export
+
 dKnotsSimple <- nimble::nimbleFunction(
   run = function(x = double(1), a = double(0), b = double(0), k = double(0),
                  alpha = double(1), log = integer(0, default = 0)) {
@@ -61,9 +23,7 @@ dKnotsSimple <- nimble::nimbleFunction(
   }
 )
 
-#' @keywords internal
-#' @rdname knotsSimple
-#' @export
+
 rKnotsSimple <- nimble::nimbleFunction(
   run = function(n = integer(0), a = double(0), b = double(0), k = double(0),
                  alpha = double(1)) {
@@ -84,36 +44,6 @@ rKnotsSimple <- nimble::nimbleFunction(
 
 
 
-#' Uniform distribution on the unit sphere
-#'
-#' `dunitSphere()` evaluates the density of the uniform distribution on the
-#' unit sphere \eqn{S^{d-1} = \{x \in \mathbb{R}^d : \|x\| = 1\}}.
-#' `runitSphere()` generates one random unit vector in \eqn{d} dimensions
-#' using a normalized Gaussian vector.
-#'
-#' @param x numeric vector of length `dim`. Point in \eqn{\mathbb{R}^d}.
-#' @param dim integer scalar. Dimension of the ambient space. Must be
-#'   positive.
-#' @param log logical; If TRUE, probabilities p are given as log(p)
-#' @param n Integer
-#'
-#'
-#' @details
-#' - The density of the uniform distribution on the unit sphere in \eqn{d}
-#'   dimensions is constant and equal to
-#'   \deqn{f(x) = 1 / \text{SurfaceArea}(S^{d-1})}
-#'   for \eqn{x \in S^{d-1}}, where
-#'   \deqn{\text{SurfaceArea}(S^{d-1}) = \frac{2\pi^{d/2}}{\Gamma(d/2)}.}
-#'
-#'
-#' @returns
-#' - `dunitSphere()` : Scalar numeric, the density (or log-density).
-#' - `runitSphere()` : Numeric vector of length `dim` with unit norm. To register distribution for nimble, only one vector is generated.
-#'
-#'
-#' @name unitSphere
-#' @export
-
 dunitSphere <- nimble::nimbleFunction(
   run = function(x = double(1), dim =double(), log = integer(0, default = 0)){
     returnType(double(0))
@@ -132,8 +62,6 @@ dunitSphere <- nimble::nimbleFunction(
   }
 )
 
-#' @rdname unitSphere
-#' @export
 runitSphere <- nimble::nimbleFunction(
   run = function(n = integer(0),dim = double()) {
     returnType(double(1))
@@ -144,40 +72,6 @@ runitSphere <- nimble::nimbleFunction(
     return(z)
   }
 )
-
-#' Design matrix of \code{bsSphere}
-#'
-#' @description
-#' A \pkg{nimble} function that maps \eqn{X'\theta}
-#' to a B-spline basis design matrix with pre-specified candidate knots and boundary knots.
-#'
-#' @details
-#' The function takes a candidate knot vector \code{knots} and boundary knots set to \code{c(a_alpha, b_alpha)}.
-#' The resulting basis matrix is right-padded with zeros to have exactly
-#' \code{maxBasis} columns, which is convenient for models whose basis dimension
-#' may change during estimation but must conform to a fixed maximum width.
-#'
-#' This function is intended for internal development purposes and is not designed
-#' for direct use by end users.
-#'
-#' @param Xlin A numeric vector representing the linear predictor values
-#'   (\eqn{X'\theta}).
-#' @param degree An integer scalar giving the polynomial degree of the B-spline.
-#' @param knots A numeric vector of candidate internal knots.
-#' @param k An integer scalar indicating how many elements of \code{knots} are active.
-#' @param maxBasis An integer scalar giving the target number of columns of the
-#'   returned design matrix. If the raw B-spline basis has fewer than \code{maxBasis}
-#'   columns, the result is right-padded with zeros.
-#' @param a_alpha A numeric scalar specifying the lower boundary knot.
-#' @param b_alpha A numeric scalar specifying the upper boundary knot.
-#'
-#' @return
-#' A numeric matrix of dimension \code{length(Xlin) × maxBasis} containing the
-#' B-spline basis (with intercept) constructed from the \code{k} knots and
-#' boundary knots \code{c(a_alpha, b_alpha)}, zero-padded on the right if needed.
-#'
-#'@seealso \code{\link{bsSphere}}, \code{\link{predict.bsimSpline}}
-#' @export
 
 transX_sp <- nimble::nimbleFunction(
  run = function(Xlin = double(1), degree = integer(0), knots = double(1),
@@ -614,9 +508,10 @@ pred_bsplineSphere <- nimbleFunction(
                  betaSample = double(2), sigma2_samples = double(1),
                  k = double(1), dfSample = double(1),
                  mina = double(1), maxb = double(1), nsamp = double(0),
-                 degree = double(0)){
+                 degree = double(0), prediction = integer(0)){
     returnType(double(2))
 
+    # prediction = 1: latent, prediction = 2: response
     new_ncol <- nimDim(newdata)[1]
     testPred <- nimMatrix(0, nrow = nsamp, ncol = new_ncol)
 
@@ -628,24 +523,28 @@ pred_bsplineSphere <- nimbleFunction(
                       intercept = TRUE,
                       boundary_knots = c(mina[i], maxb[i]))
       linkPred <- Xmat %*% betaSample[i,1:dfSample[i]]
-      predsigma <- chol(diag(rep(sigma2_samples[i], new_ncol)))
-      pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
-      idxmin <- (sampleZ[,1] < (mina[i]))
-      idxmax <- (sampleZ[,1] > (maxb[i]))
+      if (prediction == 1){ # latent
+        testPred[i,] <- linkPred[ ,1]
+      } else if (prediction == 2){ # response
+        predsigma <- chol(diag(rep(sigma2_samples[i], new_ncol)))
+        pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
+        idxmin <- (sampleZ[,1] < (mina[i]))
+        idxmax <- (sampleZ[,1] > (maxb[i]))
 
-      if (sum(idxmin) != 0){
-        minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
-        predmin <- min(pred[1, minVal_idx])
-        pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
+        if (sum(idxmin) != 0){
+          minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
+          predmin <- min(pred[1, minVal_idx])
+          pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
+        }
+
+        if (sum(idxmax) != 0){
+          maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
+          predmax <- max(pred[1, maxVal_idx])
+          pred[1, idxmax] <- nimRep(predmax, sum(idxmax))
+        }
+
+        testPred[i,] <- pred[1,]
       }
-
-      if (sum(idxmax) != 0){
-        maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
-        predmax <- max(pred[1, maxVal_idx])
-        pred[1, idxmax] <- nimRep(predmax, sum(idxmax))
-      }
-
-      testPred[i,] <- pred[1,]
 
     }
     return(testPred)

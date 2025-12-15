@@ -2,15 +2,13 @@
 # Test for input
 # tests/testthat/test-input-args.R
 test_that("check input", {
+  dataset <- data.frame(matrix(rnorm(300), 100, 3), y = rnorm(100))
   base_args <- list(
-    x = matrix(rnorm(300), 100, 3),
-    y = rnorm(100),
-    sampling = FALSE,
-    fitted   = FALSE,
+    formula = y ~ .,
+    data = dataset,
     niter    = 10,
     nburnin  = 5,
     thin     = 1,
-    thin2    = NULL,
     nchain   = 2
   )
 
@@ -18,15 +16,10 @@ test_that("check input", {
     args <- base_args
     for (nm in names(overrides)) args[[nm]] <- overrides[[nm]]
     do.call(BayesSIM, args)
+    do.call(BayesSIM.setup, args)
   }
 
-  expect_no_error(run_call())
-
-  # --- sampling / fitted: logical ---
-  expect_error(run_call(list(sampling = 1L)),           "'sampling' argument should be logical.", fixed = TRUE)
-  expect_error(run_call(list(sampling = c(TRUE, FALSE))),"'sampling' argument should be scalar.", fixed = TRUE)
-  expect_error(run_call(list(fitted = "yes")),           "'fitted' argument should be logical.",   fixed = TRUE)
-  expect_error(run_call(list(fitted = c(TRUE, TRUE))),   "'fitted' argument should be scalar.",   fixed = TRUE)
+  # expect_no_error(run_call())
 
   # --- niter: numeric scalar & not NA ---
   expect_error(run_call(list(niter = "10")),    "'niter' argument should be numeric scalar.", fixed = TRUE)
@@ -43,12 +36,6 @@ test_that("check input", {
   expect_error(run_call(list(thin = c(1, 2))),   "'thin' argument should be numeric scalar.", fixed = TRUE)
   expect_error(run_call(list(thin = NA_real_)),  "'thin' argument should be numeric scalar.", fixed = TRUE)
 
-  # --- thin2 ---
-  expect_no_error(run_call(list(thin2 = NULL)))
-  expect_error(run_call(list(thin2 = "1")),        "'thin2' argument should be numeric scalar.", fixed = TRUE)
-  expect_error(run_call(list(thin2 = c(1, 2))),    "'thin2' argument should be numeric scalar.", fixed = TRUE)
-  expect_error(run_call(list(thin2 = NA_real_)),   "'thin2' argument should be numeric scalar.", fixed = TRUE)
-
   # --- nchain ---
   expect_error(run_call(list(nchain = "2")),      "'nchain' argument should be numeric scalar.", fixed = TRUE)
   expect_error(run_call(list(nchain = c(1, 2))),  "'nchain' argument should be numeric scalar.", fixed = TRUE)
@@ -56,64 +43,143 @@ test_that("check input", {
 })
 
 
-test_that("parameters/connect to correct models", {
-  X2 <- matrix(rnorm(20), 10, 2); y <- rnorm(10)
-  X6 <- matrix(rnorm(60), 10, 6)
+test_that("BayesSIM errors on wrong indexprior", {
+  data <- data.frame(y = rnorm(10), x1 = rnorm(10))
+  formula <- y ~ x1
 
-  with_mocked_bindings(
-    {
-      f1 <- BayesSIM(X2, y, indexprior="fisher", link="bspline",
-                     sampling=TRUE, fitted=FALSE, niter=10, nburnin=2,
-                     thin=1, thin2=NULL, nchain=2, setSeed=FALSE)
-      expect_equal(f1$name, "bsFisher"); expect_identical(f1$p, 2L)
-
-      f2 <- BayesSIM(X2, y, indexprior="sphere", link="gp",
-                     sampling=TRUE, fitted=TRUE, method="Nystrom",
-                     lowerB = NULL, upperB = NULL,
-                     niter=5, nburnin=1, thin=1, nchain=1, setSeed=TRUE)
-      expect_equal(f2$name, "gpSphere"); expect_equal(f2$method, "Nystrom")
-
-      f3l <- BayesSIM(X2, y, indexprior="polar", link="gp",
-                      sampling=FALSE, fitted=TRUE, niter=3, nburnin=1, thin=1, nchain=1, setSeed=FALSE)
-      f3h <- BayesSIM(X6, y, indexprior="polar", link="gp",
-                      sampling=FALSE, fitted=TRUE, niter=3, nburnin=1, thin=1, nchain=1, setSeed=FALSE)
-      expect_equal(f3l$name, "gpPolar")
-      expect_equal(f3h$name, "gpPolarHigh")
-
-      expect_error(BayesSIM(X2, y, indexprior="fisher", link="wrong",
-                            sampling=TRUE, fitted=TRUE, niter=2, nburnin=1, thin=1, nchain=1, setSeed=FALSE),
-                   "Wrong link function name!")
-      expect_error(BayesSIM(X2, y, indexprior="wrong", link="bspline",
-                            sampling=TRUE, fitted=TRUE, niter=2, nburnin=1, thin=1, nchain=1, setSeed=FALSE),
-                   "Wrong index prior name!")
-    },
-
-    ## ---- functions ----
-    prior.param.default = function(indexprior, link)
-      list(alpha = 1, tag = paste(indexprior, link)),
-
-    init.param.default  = function(indexprior, link)
-      list(theta = 0, tag = paste(indexprior, link)),
-
-    param.check = function(user, template) TRUE,
-
-    bsFisher = function(x, y, prior, init, sampling, fitted, monitors2, niter, nburnin, thin, thin2, nchain, setSeed) {
-      list(name = "bsFisher", p = ncol(x), prior = prior, init = init, thin2 = thin2)
-    },
-    bsSphere = function(...)   list(name = "bsSphere"),
-    bsPolar  = function(x, y, ...)      list(name = "bsPolar", p = ncol(x)),
-    bsSpike  = function(...)   list(name = "bsSpike"),
-
-    gpFisher = function(...)   list(name = "gpFisher"),
-    gpSphere = function(x, y, prior, init, sampling, fitted, method,
-                        lowerB, upperB,
-                        monitors2, niter, nburnin, thin, thin2, nchain, setSeed) {
-      list(name = "gpSphere", method = method, p = ncol(x))
-    },
-    gpPolar  = function(x, y, ...)      list(name = "gpPolar", p = ncol(x)),
-    gpPolarHigh = function(x, y, ...)   list(name = "gpPolarHigh", p = ncol(x)),
-    gpSpike  = function(...)   list(name = "gpSpike"),
-
-    .package = "BayesSIM"
+  expect_error(
+    BayesSIM(formula, data, indexprior = "wrong", link = "bspline"),
+    "Wrong index prior name!"
   )
 })
+
+test_that("BayesSIM errors on wrong link", {
+  data <- data.frame(y = rnorm(10), x1 = rnorm(10))
+  formula <- y ~ x1
+
+  expect_error(
+    BayesSIM(formula, data, indexprior = "fisher", link = "wrong"),
+    "Wrong link function name!"
+  )
+
+  expect_error(
+    BayesSIM_setup(formula, data, indexprior = "fisher", link = "wrong"),
+    "Wrong link function name!"
+  )
+})
+
+test_that("BayesSIM have wrong output structure", {
+  data <- data.frame(y = rnorm(10), x1 = rnorm(10))
+  formula <- y ~ x1
+
+  expect_error(
+    BayesSIM(formula, data, indexprior = "fisher", link = "wrong"),
+    "Wrong link function name!"
+  )
+
+  expect_error(
+    BayesSIM_setup(formula, data, indexprior = "fisher", link = "wrong"),
+    "Wrong link function name!"
+  )
+})
+
+# Specific model
+test_that("bsFisher_setup runs and returns bsimSetup", {
+  skip_if_not_installed("nimble")
+  skip_on_cran()
+
+  set.seed(123)
+  n <- 50
+  dat <- data.frame(
+    y  = rnorm(n),
+    x1 = rnorm(n),
+    x2 = rnorm(n),
+    x3 = rnorm(n)
+  )
+
+  fit <- bsFisher_setup(
+    formula  = y ~ .,
+    data     = dat,
+    prior    = NULL,
+    init     = NULL,
+    niter    = 50,
+    nburnin  = 10,
+    thin     = 2,
+    nchain   = 1,
+    setSeed  = FALSE
+  )
+
+  # check class
+  expect_equal(class(fit), "bsimSetup")
+
+  # check structure
+  expect_true(is.list(fit$input))
+  expect_equal(fit$modelName, "bsFisher")
+
+  # save original data
+  expect_true(is.matrix(fit$input$origdata$x))
+  expect_true(is.matrix(fit$input$origdata$y))
+  expect_equal(nrow(fit$input$origdata$x), n)
+  expect_equal(nrow(fit$input$origdata$y), n)
+
+  # check sampling options
+  expect_false(fit$input$samplingOptions$sampling)
+  expect_equal(fit$input$samplingOptions$niter, 50)
+  expect_equal(fit$input$samplingOptions$nburnin, 10)
+  expect_equal(fit$input$samplingOptions$thin, 2)
+  expect_equal(fit$input$samplingOptions$nchain, 1)
+
+  expect_error(
+    bsFisher_setup(
+      formula  = y ~ x1 + x2,
+      data     = dat,
+      prior    = NULL,
+      init     = NULL,
+      nchain   = 2,
+      setSeed  = "wrong_type"
+    ),
+    "'setSeed' argument should be logical or numeric vector."
+  )
+
+  y  <- rnorm(10)
+  x1 <- rnorm(10)
+  x2 <- rnorm(10)
+  mat_data <- cbind(y, x1, x2)
+  expect_error(
+    bsFisher_setup(
+      formula  = y ~ x1 + x2,
+      data     = mat_data,
+      prior    = NULL,
+      init     = NULL
+    ),
+    "data should be an data.frame."
+  )
+})
+
+# prior/initial parameter
+test_that("prior/initial parameter", {
+  skip_if_not_installed("nimble")
+  skip_on_cran()
+
+  set.seed(123)
+  n <- 50
+  dat <- data.frame(
+    y  = rnorm(n),
+    x1 = rnorm(n),
+    x2 = rnorm(n),
+    x3 = rnorm(n)
+  )
+
+  prior <- prior_param(indexprior = "sphere", link = "bspline")
+  init <- init_param(indexprior = "fisher", link = "bspline")
+
+
+
+  expect_error(BayesSIM_setup(
+    formula  = y ~ ., data = dat,
+    prior    = prior, init     = init,
+    niter    = 50, nburnin  = 10,
+    thin     = 2, nchain   = 1, setSeed  = FALSE))
+
+})
+

@@ -1,35 +1,4 @@
-#' Covariance kernel with squared-exponential for \code{gpSphere()}
-#'
-#' @description
-#' A \pkg{nimble} function that constructs a covariance matrix on
-#' \eqn{t = X'\theta} using a squared–exponential Gaussian kernel with amplitude
-#' \eqn{\eta} and length-scale parameter \eqn{l}.
-#' Each entry is defined as \eqn{K_{ij} = \eta\exp\{-(t_i - t_j)^2 / l\}, \quad i, j = 1, \ldots, n},
-#' symmetrized explicitly and stabilized with a small diagonal jitter term.
-#'
-#' @details
-#' For the squared–exponential kernel construction, the covariance matrix is symmetrized
-#' using \eqn{(K + K') / 2} and a small jitter term (\eqn{10^{-4}}) is added
-#' to the diagonal to ensure positive-definiteness and numerical stability.
-#' The parameters \code{amp} and \code{l} jointly control the amplitude
-#' (vertical scale) and smoothness (horizontal scale) of the process.
-#'
-#' @param vec Numeric vector of input locations. \eqn{t = X'\theta} is the main input value for the single-index model.
-#' @param l Positive numeric scalar controlling the length-scale of the kernel.
-#'   Larger \code{l} yields slower decay of correlations.
-#' @param amp Non-negative numeric scalar specifying the amplitude (variance scale)
-#'   of the kernel.
-#'
-#' @return
-#' A numeric \eqn{n \times n} covariance matrix with entries
-#' \eqn{K_{ij} = \eta\,\exp\{-(t_i - t_j)^2 / l\}}
-#' for \eqn{i, j = 1, \cdots, n}, symmetrized and stabilized with a
-#' diagonal jitter term \eqn{10^{-4}}.
-#'
-#' @seealso
-#' \code{\link{gpSphere}}, \code{\link{predict.bsimGp}}
-#'
-#' @export
+
 expcov_gpSphere <- nimbleFunction(
   run = function(vec = double(1), l = double(0), amp = double(0)){
     returnType(double(2))
@@ -284,7 +253,8 @@ pred_gpSphere <- nimbleFunction(
   run = function(newdata = double(2), nsamp = integer(0), y = double(1),
                  indexSample = double(2),
                  XlinSample = double(2), sigma2_samples = double(1),
-                 lengthSample = double(1), ampSample = double(1)){
+                 lengthSample = double(1), ampSample = double(1),
+                 prediction = integer(0)){
     returnType(double(2))
 
     new_ncol <- nimDim(newdata)[1]
@@ -312,10 +282,19 @@ pred_gpSphere <- nimbleFunction(
       Sigcov <- cov_new_new - cov_new_ori %*% midMatrix %*%  t(cov_new_ori)
 
       # 4. Sampling
-      predcov <- Sigcov + diag(rep(currSigma, new_ncol))
-      cholpredcov <- chol(predcov)
-      testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
-                                  prec_param  = FALSE))
+      if (prediction == 1){ # latent
+        cholpredcov <- chol(Sigcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      } else{ # response
+        predcov <- Sigcov + diag(rep(currSigma, new_ncol))
+        cholpredcov <- chol(predcov)
+        testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
+                                      prec_param  = FALSE))
+      }
+
+
+
     }
     return(testPred)
 

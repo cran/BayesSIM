@@ -2,86 +2,73 @@
 % Please edit documentation in R/bsSpike.R
 \name{bsSpike}
 \alias{bsSpike}
-\title{Bayesian single-index regression with B-spline link and spike-and-slab prior}
+\alias{bsSpike_setup}
+\title{Bayesian Single-Index Regression with B-Spline Link and Spike-and-Slab Prior}
 \usage{
 bsSpike(
-  x,
-  y,
-  prior = list(index = list(nu = list(r1 = 1, r2 = 1), index = list(sigma_theta = 0.25)),
-    link = list(basis = list(df = 21, degree = 2, delta = 0.01), beta = list(mu = NULL,
-    cov = NULL)), sigma2 = list(shape = 0.001, rate = 100)),
-  init = list(index = list(pi = 0.5, nu = NULL, index = NULL), link = list(beta = NULL),
-    sigma2 = 0.01),
-  sampling = TRUE,
-  fitted = TRUE,
-  monitors2 = NULL,
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
   niter = 10000,
   nburnin = 1000,
   thin = 1,
-  thin2 = NULL,
+  nchain = 1,
+  setSeed = FALSE
+)
+
+bsSpike_setup(
+  formula,
+  data,
+  prior = NULL,
+  init = NULL,
+  monitors = NULL,
+  niter = 10000,
+  nburnin = 1000,
+  thin = 1,
   nchain = 1,
   setSeed = FALSE
 )
 }
 \arguments{
-\item{x}{Numeric data.frame/matrix of predictors. Each row is an observation.}
+\item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}
 
-\item{y}{Numeric response vector/matrix.}
+\item{data}{an data frame.}
 
-\item{prior}{Optional named list of prior settings with sublists:
-\describe{
-\item{\code{index}}{Spike and slab prior hyperparameters: Beta-binomial for variable selection indicator \eqn{\nu} (default \code{r1 = 1, r2 = 1}),
-and normal distribution for selected variables \eqn{\theta} (default: \eqn{N(0, \sigma_{\theta}^{2})})}
-\item{\code{link}}{B-spline basis and coefficient of B-spline setup.
-\enumerate{
-\item{\code{basis} For the basis of B-spline, \code{df} is the number of basis functions (default \code{21}), \code{degree} is the spline degree (default \code{2}) and \code{delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
-\item{\code{beta} For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{mu}, and covariance \code{cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
-}}
-\item{\code{sigma2}}{Error-variance prior hyperparameters. An Inverse-Gamma prior is assigned to \eqn{\sigma^2}
-where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-(default \code{shape = 0.001, rate = 100})}
-}}
+\item{prior}{Optional named list of prior settings. Further descriptions are in \strong{Details} section.}
 
-\item{init}{Optional named list of initial values:
-\describe{
-\item{\code{index}}{
-\enumerate{
-\item{\code{pi} Initial selecting variable probability. (default: \code{0.5})}
-\item{\code{nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
-\item{\code{index} Initial vector of index. By default, each element of indedx vector, which is chosen by \eqn{nu}, is proposed by normal distribution.}
-}}
-\item{\code{link}}{Initial spline coefficients (\code{beta}). By default,
-\eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
-where \eqn{X_{\theta}} is the B-spline basis design matrix.}
-\item{\code{sigma2}}{Initial scalar error variance (default \code{0.01}).}
-}}
+\item{init}{Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior or designated value.
+Further descriptions are in \strong{Details} section.}
 
-\item{sampling}{Logical. If \code{TRUE} (default), run MCMC; otherwise return prepared nimble model objects without sampling.}
-
-\item{fitted}{Logical. If \code{TRUE} (default), fitted values drawn from posterior distribution are included in the output and \code{c("Xlin", "linkFunction", "beta")} is monitored for prediction.}
-
-\item{monitors2}{Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- bsSpike(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.}
+\item{monitors}{Optional character vector of additional monitor nodes. To check the names of the nodes, fit the \code{model_setup} function and
+then inspect the variable names stored in the model object using \link{getVarMonitor}.}
 
 \item{niter}{Integer. Total MCMC iterations (default \code{10000}).}
 
 \item{nburnin}{Integer. Burn-in iterations (default \code{1000}).}
 
-\item{thin}{Integer. Thinning for monitors1 (default \code{1}).}
-
-\item{thin2}{Integer. Optional thinning for \code{monitors2} (default \code{1}).}
+\item{thin}{Integer. Thinning for monitors (default \code{1}).}
 
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
-\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.}
+\item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 }
 \value{
 A \code{list} typically containing:
 \describe{
-\item{\code{model}}{Nimble model}
-\item{\code{sampler}}{Nimble sampler}
-\item{\code{sampling}}{Posterior draws of \eqn{\nu}, \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-\item{\code{fitted}}{If \code{fitted = TRUE}, in-sample fitted values is given.}
-\item{\code{input}}{List of data,input values for prior and initial values, and computation time without compiling.}
+\item{\code{coefficients}}{Mean estimates of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{ses}}{Mean standard error of index vector. Return list of \code{model_setup} does not include it.}
+\item{\code{residuals}}{Residuals with mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{fitted.values}}{Mean estimates of fitted values. Return list of \code{model_setup} does not include it.}
+\item{\code{linear.predictors}}{Mean estimates of single-index values. Return list of \code{model_setup} does not include it.}
+\item{\code{gof}}{Goodness-of-fit. Return list of \code{model_setup} function does not include it.}
+\item{\code{samples}}{Posterior draws of variables for computing fitted values of the model, including \eqn{\theta}, \eqn{\sigma^2}.
+Return list of \code{model_setup} does not include it.}
+\item{\code{input}}{List of data used in modeling, formula, input values for prior and initial values, and computation time without compiling.}
+\item{\code{defModel}}{Nimble model object.}
+\item{\code{defSampler}}{Nimble sampler object.}
+\item{\code{modelName}}{Name of the model.}
 }
 }
 \description{
@@ -91,23 +78,56 @@ index vector \eqn{\theta} has spike-and-slab prior.
 }
 \details{
 \strong{Model} The single–index model uses a \eqn{m}-order polynomial spline with \eqn{k} interior knots as follows:
-\eqn{f(t) = \sum_{j=1}^{1+m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = x_i' \theta, i = 1,\cdots, n}
-and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a = min(t_i, i = 1, \cdots, n) - \delta},
-and \eqn{b = max(t_i, i = 1,\cdots, n) + \delta}. \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
+\deqn{f(t) = \sum_{j=1}^{m+k} B_j(t)\,\beta_j} on \eqn{[a, b]} with \eqn{t_i = X_i' \theta, i = 1,\cdots, n}
+and \eqn{\|\theta\|_2 = 1}. \eqn{\{\beta_j\}_{j=1}^{m+k}} are spline coefficient and \eqn{a_\theta} and \eqn{ b_\theta} are boundary knots where \eqn{a_\theta = min(t_i, i = 1, \cdots, n) - \delta},
+and \eqn{b_\theta = max(t_i, i = 1,\cdots, n) + \delta}. \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
 prior for variable selection with binary indicator variable \eqn{\nu}.
 
 \strong{Priors}
 \itemize{
-\item Slab coefficients \eqn{\theta}: Gaussian \eqn{N(0, \sigma_\theta^2)}.
-\item Inclusion indicators \eqn{\nu}: Bernoulli(\eqn{\pi}).
-\item Inclusion probability \eqn{\pi}: Beta(\eqn{r_1, r_2}).
-\item Inverse-Gamma prior on \eqn{\sigma^2}: \eqn{\sigma^2 \sim \mathrm{IG}(a_\sigma, b_\sigma)}.
-\item Conditional on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients follow
-\eqn{\beta = (\beta_1,\ldots,\beta_K)^\top \sim \mathcal{N}\!\big(\hat{\beta}_{\theta},\, \sigma^2 (X_{\theta}^\top X_{\theta})^{-1}\big)}.
+\item The variable selection indicator \eqn{\nu} has Beta–Bernoulli hierarchy prior. Beta hyper-prior on the Bernoulli–inclusion probability \eqn{w},
+inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where  \eqn{n_\nu = \Sigma_{i=1}^{p}I(\nu_i = 1)}.
+\eqn{r_1, r_2} are shape and rate parameter of beta distribution.
+\item Slab coefficients \eqn{\theta} have normal distribution with zero mean and \eqn{\sigma_\theta^2} variance.
+\item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
+normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
+covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
+\item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 }
 
 \strong{Sampling}
 Samplers are automatically assigned by nimble.
+
+\strong{Prior hyper-parameters}
+These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\enumerate{
+\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
+\item Link function: B-spline basis and coefficient of B-spline setup.
+\itemize{
+\item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
+\item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
+}
+\item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+(default \code{sigma2_shape = 0.001, sigma2_rate = 100})
+}
+
+\strong{Initial values}
+These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+\enumerate{
+\item Index vector:
+\itemize{
+\item{\code{index_pi} Initial selecting variable probability. (default: \code{0.5})}
+\item{\code{index_nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
+\item{\code{index} Initial vector of index. By default, each element of index vector, which is chosen by \eqn{\nu}, is proposed by normal distribution.}
+}
+\item Link function: Initial spline coefficients (\code{link_beta}). By default,
+\eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
+where \eqn{X_{\theta}} is the B-spline basis design matrix.
+\item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
+
+}
 }
 \examples{
 \donttest{
@@ -119,16 +139,23 @@ sigma <- 0.5
 X <- matrix(runif(n * d, -1, 1), nrow = n)
 index_vals <- as.vector(X \%*\% theta)
 y <- f(index_vals) + rnorm(n, 0, sigma)
+simdata <- data.frame(x = X, y = y)
+colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
-fit <- bsSpike(X, y)
+fit1 <- bsSpike(y ~ ., data = simdata,
+                niter = 5000, nburnin = 1000, nchain = 1)
 
 # Split version
-models <- bsSpike(X, y, sampling = FALSE)
+models <- bsSpike_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-mcmc.out <- runMCMC(Ccompile$mcmc, niter = 10000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = models$input$init,
+nimSampler <- get_sampler(Ccompile)
+initList <- getInit(models)
+mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+                   nchains = 1, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
+fit2 <- as_bsim(models, mcmc.out)
+summary(fit2)
 }
 
 }

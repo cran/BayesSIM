@@ -1,69 +1,32 @@
-#' Bayesian single-index regression with Gaussian process link and unit sphere prior
-#'
+#' Bayesian Single-Index Regression with Gaussian Process Link and Unit Sphere Prior
 #'
 #' @description
-#' Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} where
+#' Fits a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}, where
 #' the index \eqn{\theta} lies on the unit sphere, and the link \eqn{f(\cdot)} is represented
 #' with Gaussian process.
 #'
-#' @param x Numeric data.frame/matrix of predictors. Each row is an observation.
-#' @param y Numeric response numeric vector/matrix. Other types  are not available.
-#' @param prior Optional named list of prior settings with sublists:
-#' \describe{
-#' \item{\code{index}}{Nothing to assign.}
-#' \item{\code{link}}{
-#' \enumerate{
-#'    \item{\code{lenghscale}: Prior of length-scale parameter for covariance kernel. Gamma distribution is assigned for \eqn{l}: \eqn{\text{G}(\alpha_l, \beta_l)}
-#'     \code{shape} is shape parameter (default \code{1/8}) and \code{rate} is rate parameter of lengthscale \eqn{l}. (default \code{1/8})}
-#'     \item{\code{amp}: Prior of amplitude parameter for covariance kernel. Log-normal distribution is assigned for \eqn{\eta}: \eqn{\log(\eta) \sim \mathrm{N}(a_\eta, b_\eta)}
-#'      \code{a_amp} is mean (default \code{-1}), and \code{b_amp} is standard deviation (default \code{1})}
-#' }
-#' }
-#' \item{\code{sigma2}}{Error-variance prior hyperparameters. An inverse-gamma prior is assigned to \eqn{\sigma^2}
-#'         where \code{shape} is shape parameter and \code{rate} is rate parameter of inverse gamma distribution.
-#'         (default \code{shape = 1, rate = 1})}
-#'
-#'   }
-#' @param init Optional named list of initial values. If the values are not assigned, they are randomly sampled from prior.
-#' \describe{
-#'      \item{\code{index}}{Initial unit index vector. By default, vector is randomly drawn from normal distribution and standardized.}
-#'      \item{\code{link}}{\code{lenghscale} is initial scalar range parameter. (default: \code{0.1})
-#'      \code{amp} is initial scalar scale parameter. (default: \code{1})
-#'      }
-#'      \item{\code{sigma2}}{Initial scalar error variance. (default: \code{1})}
-#' }
-#'
-#' @param sampling Logical. If \code{TRUE} (default), run MCMC; otherwise return
-#'   prepared nimble model objects without sampling.
-#' @param fitted Logical. If \code{TRUE} (default), posterior fitted values are included in the output.
-#' Also, if \code{"sampling = FALSE"}, parameters for prediction(\code{c("linkFunction", "Xlin", "lengthscale", "amp")}) is additionally monitored.
-#' @param method Character, Gp-uniform model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
+#' @inheritParams bsFisher
+#' @param method Character, `gpSphere` model has 3 different types of sampling method, fully Bayesian method (\code{"FB"}), empirical Bayes approach (\code{"EB"}), and empirical Gibbs sampler (\code{"EG"}).
 #' Assign one sampler method. Empirical sampling approach is recommended in high-dimensional data. By default, fully Bayesian approach is assigned.
-#' @param lowerB Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
+#' @param lowerB This parameter is only for `gpSphere` model. Numeric vector of element-wise lower bounds for the \code{"L-BFGS-B"} method.
 #' When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 #' By default, the lower bounds are \code{-1} for the index vector and \code{-1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.
-#' @param upperB Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
+#' @param upperB This parameter is only for `gpSphere` model. Numeric vector of element-wise upper bounds for the \code{"L-BFGS-B"} method.
 #' When the empirical Bayes or Gibbs sampler method is used, the marginal likelihood is optimized via \code{optim(method = "L-BFGS-B")}.
-#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}; note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
+#' The vector must be ordered as \code{c(index vector, lengthscale, amp, sigma2)}. Note that \code{sigma2} is included only for the empirical Bayes method (omit it for Gibbs).
 #' By default, the upper bounds are \code{1} for the index vector and \code{1e2} for logarithm of \code{lengthscale}, \code{amp}, and (if present) \code{sigma2}.
-#' @param monitors2 Optional character vector of additional monitor nodes. To check the names of the nodes, set \code{fit <- gpSphere(x, y, sampling = FALSE)} and then inspect the variable names stored in the model object using \code{fit$model$getVarNames()}.
-#' @param niter Integer. Total MCMC iterations (default \code{10000}).
-#' @param nburnin Integer. Burn-in iterations (default \code{1000}).
-#' @param thin Integer. Thinning for primary monitors (default \code{1}).
-#' @param thin2 Integer. Optional thinning for \code{monitors2} (default \code{1}).
-#' @param nchain Integer. Number of MCMC chains (default \code{1}).
-#' @param setSeed Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC}.
 #'
 #' @details
-#' \strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
+#' \strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
 #' Index vector should be length 1.
 #'
 #' \strong{Priors}
 #' \itemize{
-#'   \item Index vector: Uniform prior with \eqn{||\theta|| =1}
-#'   \item Covariance kernel: \eqn{\eta \sim \text{lognormal}(a_\eta, b_\eta)} , \eqn{l \sim \text{G}(\alpha_l, \beta_l)}
-#'   \item Error variance \eqn{\sigma^2}: \eqn{IG(a_\sigma, b_\sigma)}
+#' \item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
+#' \item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
+#' Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_l} and rate parameter \eqn{\beta_l}.
+#' \item Inverse-Gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 #'
 #' }
 #'
@@ -79,14 +42,38 @@
 #' are estimated by MAP, whereas \eqn{f} and \eqn{\sigma^2} are sampled
 #' via Gibbs sampling.
 #'
-#' @return A \code{list} typically containing:
-#' \describe{
-#'   \item{\code{model}}{Nimble model}
-#'   \item{\code{sampler}}{Nimble sampler}
-#'   \item{\code{sampling}}{Posterior draws of \eqn{\theta}, \eqn{\sigma^2}, and nodes for fitted values by default. Variables specified in \code{monitors2} will be added if provided.}
-#'   \item{\code{fitted}}{If \code{fitted = TRUE}, summary values of in-sample fitted values are included.}
-#'   \item{\code{input}}{List of input values for prior, initial values and execution time without compiling.}
+#' For estimation via MAP, effective sample size or potential scale reduction factor is meaningless.
+#'
+#' \strong{Prior hyper-parameters}
+#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \enumerate{
+#' \item Index vector: Nothing to assign.
+#' \item Link function:
+#' \itemize{
+#'    \item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{l}.
+#'     \code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
+#'     \item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
+#'      \code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
 #' }
+#'
+#' \item Error variance (\code{sigma2}): inverse gamma prior is assigned to \eqn{\sigma^2}
+#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
+#'         (default \code{sigma2_shape = 1, sigma2_rate = 1})
+#'
+#' }
+#'
+#' \strong{Initial values}
+#' These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
+#' \enumerate{
+#' \item Index vector (\code{index}): Initial unit index vector. By default, vector is randomly drawn from normal distribution and standardized.
+#'      \item Link function: \code{link_lengthscale} is initial scalar length-scale parameter. (default: \code{0.1})
+#'      \code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
+#'      \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
+#'
+#' }
+#'
+#'
+#' @inherit bsFisher return
 #'
 #' @examples
 #' \donttest{
@@ -98,37 +85,70 @@
 #' X <- matrix(runif(n * d, -1, 1), nrow = n)
 #' index_vals <- as.vector(X %*% theta)
 #' y <- f(index_vals) + rnorm(n, 0, sigma)
+#' simdata <- data.frame(x = X, y = y)
+#' colnames(simdata) <- c(paste0("X", 1:4), "y")
 #'
-#' # One-call version
-#' fit <- gpSphere(X, y, method = "EB")
+#' # One tool version
+#' fit1 <- gpSphere(y ~ ., method = "EB", data = simdata,
+#'                  niter = 1000, nburnin = 100)
 #'
 #' # Split version
-#' model <- gpSphere(X, y, method = "EB", sampling = FALSE)
-#' Ccompile <- compileModelAndMCMC(model)
-#' mcmc.out <- runMCMC(Ccompile$mcmc, niter = 5000, nburnin = 1000, thin = 1,
-#'                    nchains = 1, setSeed = TRUE, inits = model$input$init,
+#' models <- gpSphere_setup(y ~ ., method = "EB", data = simdata)
+#' Ccompile <- compileModelAndMCMC(models)
+#' nimSampler <- get_sampler(Ccompile)
+#' initList <- getInit(models)
+#' mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
+#'                     nchains = 1, setSeed = TRUE, inits = initList,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+#' fit2 <- as_bsim(models, mcmc.out)
+#' # The estimates computed by MAP - standard error of the esitmate is meaningless.
+#' summary(fit2)
 #' }
-#'
 #' @references
 #' Choi, T., Shi, J. Q., & Wang, B. (2011).
 #' A Gaussian process regression approach to a single-index model.
 #' \emph{Journal of Nonparametric Statistics}, 23(1), 21-36.
-#'
+#' @name gpSphere
 #' @export
+gpSphere <- function(formula, data,
+                     prior = NULL,
+                     init = NULL,
+                     method = "FB",
+                     lowerB = NULL, upperB = NULL, monitors = NULL, niter = 10000,
+                     nburnin=1000, thin = 1, nchain = 1, setSeed = FALSE){
+  return(gpSphere.default(formula = formula, data = data,
+                          prior = prior, init = init,
+                          sampling = TRUE, method = method,
+                          lowerB = lowerB, upperB = upperB, monitors = monitors,
+                          niter = niter,
+                          nburnin=nburnin, thin = thin, nchain = nchain, setSeed = setSeed))
+
+}
+
+#' @rdname gpSphere
+#' @export
+gpSphere_setup <- function(formula, data,
+                           prior = NULL,
+                           init = NULL,
+                           method = "FB",
+                           lowerB = NULL, upperB = NULL, monitors = NULL, niter = 10000,
+                           nburnin=1000, thin = 1, nchain = 1, setSeed = FALSE){
+
+  return(gpSphere.default(formula = formula, data = data,
+                          prior = prior, init = init,
+                          sampling = FALSE, method = method,
+                          lowerB = lowerB, upperB = upperB, monitors = monitors,
+                          niter = niter,
+                          nburnin=nburnin, thin = thin, nchain = nchain, setSeed = setSeed))
+}
 
 
-gpSphere <- function(x, y,
-                      prior = list(index = NULL,
-                                   link = list(lengthscale = list(shape = 1/8, rate = 1/8),
-                                               amp = list(a_amp = -1, b_amp = 1)),
-                                   sigma2 = list(shape = 1, rate = 1)),
-                      init = list(index = list(index = NULL),
-                                  link = list(lengthscale = 0.1, amp = 1),
-                                  sigma2 = 1),
-                      sampling = TRUE, fitted = TRUE, method = "FB",
-                     lowerB = NULL, upperB = NULL, monitors2 = NULL, niter = 10000,
-                     nburnin=1000, thin = 1, thin2 = NULL, nchain = 1, setSeed = FALSE){
+gpSphere.default <- function(formula, data,
+                             prior = NULL,
+                             init = NULL,
+                             sampling = TRUE, method = "FB",
+                             lowerB = NULL, upperB = NULL, monitors = NULL, niter = 10000,
+                             nburnin=1000, thin = 1, nchain = 1, setSeed = FALSE){
 
   start1 <- Sys.time()
   index <- 0; log_amp <- 0; lengthscale <- 0; sigma2 <- 0; Id <- 0
@@ -136,7 +156,7 @@ gpSphere <- function(x, y,
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
-    sampling, fitted, niter, nburnin, thin, thin2, nchain,
+    sampling, niter, nburnin, thin, nchain,
     prior, init, "sphere", "gp"
   )
   prior <- checkOutput$priorlist_final
@@ -158,6 +178,9 @@ gpSphere <- function(x, y,
     "obj_btt_EB","pred_gpSphere","indexSampler_gpSphere","sigma2Sampler_gpSphere",
     "optSampler",
 
+    # distribution
+    "dunitSphere", "runitSphere",
+
     # utils
     "pred_fitted"
   )
@@ -166,22 +189,62 @@ gpSphere <- function(x, y,
   ns <- asNamespace(pkg)
   list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
 
+  suppressMessages(
+    nimble::registerDistributions(list(
+      dunitSphere = list(
+        BUGSdist     = "dunitSphere(dim)",
+        types        = c("value = double(1)",
+                         "dim   = double(0)"),
+        discrete     = FALSE
+      )
+    ), verbose = FALSE)
+
+  )
+
 
 
   # check data dimension
-  if (!is.matrix(x) & !is.data.frame(x)){stop("x is not matrix/data.frame.")}
-  if (!is.vector(y) & !is.matrix(y)){stop("y is not vector or matrix.")}
-  if (is.matrix(y)){
-    if ((ncol(y) != 1)){
-      stop("y should be scalar vector or matrix.")
+  # Data
+  if (!is.data.frame(data)){
+    stop("data should be an data.frame.")
+  }
+
+  Call <- match.call()
+  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+  if (indx[1] == 0L)
+    stop("a 'formula' argument is required")
+  temp <- Call[c(1L,indx)]
+  temp[[1L]] <- quote(stats::model.frame)
+  m <- eval.parent(temp)
+  Terms <- attr(m,"terms")
+  formula <- as.character(formula)
+  response.name <- formula[2]
+  data.name <- strsplit(formula[3]," \\+ ")[[1]]
+  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+  if(data.name[1]=="."){
+    tot.name <- response.name
+  } else{
+    tot.name <- c(response.name ,data.name)
+  }
+  if(!int.flag){
+    stop("BayesSIM cannot treat interaction terms")
+  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+           length(tot.name)){
+    stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                           tot.name))[-c(1:ncol(data))]],collapse=","),
+               " is/are not in your data"))
+  }else{
+    origY <- data[ ,response.name]
+    if(data.name[1]=="."){
+      origX <- data[,colnames(data) != response.name]
+    }else {
+      origX <- data[ ,data.name,drop=FALSE]
     }
   }
-  X <- as.matrix(x)
-  Y <- matrix(y, ncol = 1)
 
-  if (nrow(X) != nrow(Y)){
-    stop("x and y have different dimension.")
-  }
+  # X = origX, Y = origY
+  X <- as.matrix(origX)
+  Y <- as.matrix(origY)
 
   if (method == "EB" & nchain > 1){
     stop("Only single chain is allowed.")
@@ -192,7 +255,7 @@ gpSphere <- function(x, y,
   p <- ncol(X)
 
   # model code
-  modelCode_fb <- nimbleCode({
+  modelCode_FB <- nimbleCode({
     # beta - MH
     index0[1:p] ~ dunitSphere(p)
     index[1:p] <- index0[1:p]/sqrt(sum(index0[1:p]^2))
@@ -200,7 +263,7 @@ gpSphere <- function(x, y,
     # hyperprior - MH
     lengthscale ~ dgamma(shape, rate)
     amp ~ dlnorm(a_amp, b_amp)
-#
+
     # Linear predictor
     for (i in 1:N){
       Xlin[i] <- sum(X[i,1:p] * index[1:p])
@@ -218,16 +281,13 @@ gpSphere <- function(x, y,
 
   })
 
-  # model code
   modelCode_EG <- nimbleCode({
-    # beta - MH
+    # index - MH
     index[1:p] ~ dunitSphere(p)
 
     # hyperprior - MH
     lengthscale ~ dgamma(shape, rate)
     amp ~ dlnorm(a_amp, b_amp)
-    # log_amp ~ dnorm(a_amp, b_amp)
-    # amp <- exp(log_amp)
 
     # Linear predictor
     for (i in 1:N){
@@ -247,6 +307,7 @@ gpSphere <- function(x, y,
   })
 
   modelCode_EB <- nimbleCode({
+    # MAP method is used
     # Linear predictor
     for (i in 1:N){
       Xlin[i] <- sum(X[i,1:p] * index[1:p])
@@ -329,17 +390,20 @@ gpSphere <- function(x, y,
     }
   }
 
+
+
+  # For all initial values
   inits_list <- lapply(seq_len(nchain),
                        function(j) initFunction_gpSphere(N = N, p = p, X = X, Y = as.vector(Y),
-                                                       index = init$index$index,
-                                                       lengthscale = init$link$lengthscale,
-                                                       amp  = init$link$amp,
-                                                       sigma2  = init$sigma2, method = method,
-                                                       setSeed = seedNum[j]))
+                                                         index = init$index,
+                                                         lengthscale = init$link$lengthscale,
+                                                         amp  = init$link$amp,
+                                                         sigma2  = init$sigma2, method = method,
+                                                         setSeed = seedNum[j]))
 
   firstInit <- inits_list[[1]]
 
-  # boundarys for optimizing
+  # boundarys for optimizing (using MAP) ---------------------------------------
   if (method %in% c("EB", "EG")){
     # lower bound
     if (!is.null(lowerB) & method == "EB" &  length(lowerB) != (p+3)){
@@ -375,12 +439,13 @@ gpSphere <- function(x, y,
     }
   }
 
+  # Initial values -------------------------------------------------------
   if (method == "EB"){ # only nchain = 1
     obj_fn <- obj_btt_EB(X, Y, p, shape, rate,
                    a_amp, b_amp, a_sig, b_sig)
     # lowerB <- c(rep(-1, p),-1e2, -1e2, -1e2)
     # upperB <- c(rep(1, p),1e2, 1e2, 1e2)
-    tempIndex <- as.vector(ppr(X,Y, nterms = 1)$alpha)
+    tempIndex <- as.vector(ppr(X,Y, nterms = 1)$alpha) # initial value for optimizing
 
     current <- c(tempIndex, log(firstInit$lengthscale), log(firstInit$amp),
                  firstInit$sigma2)
@@ -406,8 +471,6 @@ gpSphere <- function(x, y,
       }
     )
 
-
-
     proposedIndex <- optRes$par[1:p]
     if (proposedIndex[1] < 0){
       proposedIndex <- (proposedIndex) * (-1)
@@ -422,21 +485,19 @@ gpSphere <- function(x, y,
     init_cov <-  expcov_gpSphere(init_Xlin, map_lengthscale, map_amp)
     firstInit <- list(Xlin = init_Xlin,
                       cov = init_cov,
-                      linkFunction =mvtnorm::rmvnorm(1, rep(0, N), sigma = init_cov)[1,],
+                      linkFunction = mvtnorm::rmvnorm(1, rep(0, N), sigma = init_cov)[1,],
                       Sigma = map_sigma2 * diag(1, N))
-
-  }
-
-
-  if (method == "FB"){
-    modelCode <- modelCode_fb
-  } else if (method == "EG"){
-    modelCode <- modelCode_EG
-  } else{
+    inits_list <- firstInit
     modelCode <- modelCode_EB
+
+  } else{ # FB, EG
+
+    if (method == "FB"){
+      modelCode <- modelCode_FB
+    } else if (method == "EG"){
+      modelCode <- modelCode_EG
+    }
   }
-
-
 
   message("Build Model")
 
@@ -451,6 +512,7 @@ gpSphere <- function(x, y,
                                                 Id = diag(1, N), mu0 = rep(0, N)),
                                inits = firstInit)
     )
+    monitorsList <- c("index", "sigma2", "linkFunction", "Xlin", "lengthscale", "amp")
 
   } else{ # EB
     suppressMessages(
@@ -462,31 +524,13 @@ gpSphere <- function(x, y,
                                                   Id = diag(1, N), mu0 = rep(0, N)),
                                  inits = firstInit)
     )
+    monitorsList <- c("linkFunction", "Xlin")
   }
 
   # sampling
-  if (method %in% c("FB", "EG")){
-    monitorsList <- c("index", "sigma2")
-    if (fitted){
-      monitorsList <- c(monitorsList, "linkFunction", "Xlin", "lengthscale", "amp")
-    }
-
-  } else{ # EB
-    monitorsList <- c("linkFunction")
-    if (fitted){
-      monitorsList <- c(monitorsList, "Xlin")
-    }
-  }
-
-  if (is.null(monitors2)){
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList,
-                              print = FALSE))
-  } else{
-    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                              monitors = monitorsList, monitors2 = monitors2,
-                              print = FALSE))
-  }
+  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                             monitors = monitorsList,
+                                             print = FALSE))
 
   if (method == "FB"){
     mcmcConf$removeSamplers('lengthscale')
@@ -519,42 +563,38 @@ gpSphere <- function(x, y,
 
   message("Build MCMC")
   mcmc1 <- buildMCMC(mcmcConf)
-  end1 <- Sys.time()
+
 
   if (!sampling){
-    mcmc.out <- NULL
-    fittedResult <- NULL
-    sampMCMC <- NULL
-
+    samples <- NULL
 
   } else{
+    start2 <- Sys.time()
     message("Compile Model")
     suppressMessages(
       CModel <- compileNimble(simpleModel, resetFunctions = TRUE)
     )
-
     message("Compile MCMC")
     suppressMessages(Cmcmc <- compileNimble(mcmc1))
+    end2 <- Sys.time()
 
-    start2 <- Sys.time()
     message("Run MCMC")
     mcmc.out <- NULL
+
     if (setSeed == FALSE){
       seedNum <- setSeed
     }
-    if (is.null(monitors2)){
-      if (method == "EB"){
-        mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                            thin = thin,
-                            nchains = nchain, setSeed = seedNum,
-                            summary = FALSE, samplesAsCodaMCMC = TRUE)
-      } else if (method == "EG"){
-        tryCatch(
-          {
-            mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                                thin = thin,
-                                nchains = nchain, setSeed = seedNum, inits = inits_list,
-                                summary = FALSE, samplesAsCodaMCMC = TRUE)
+    if (method == "EB"){
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin,nchains = nchain, setSeed = seedNum,
+                          inits = inits_list,
+                          summary = FALSE, samplesAsCodaMCMC = TRUE)
+    } else if (method == "EG"){
+      tryCatch(
+        {
+          mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                              thin = thin,nchains = nchain, setSeed = seedNum,
+                              inits = inits_list, summary = FALSE, samplesAsCodaMCMC = TRUE)
           },
           error = function(e) {
             stop(paste0(
@@ -565,45 +605,12 @@ gpSphere <- function(x, y,
               ), conditionMessage(e), call. = FALSE)
           }
         )
-      } else{
-        mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                            thin = thin,
-                            nchains = nchain, setSeed = seedNum, inits = inits_list,
-                            summary = FALSE, samplesAsCodaMCMC = TRUE)
+    } else{ # FB
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin, nchains = nchain, setSeed = seedNum,
+                          inits = inits_list, summary = FALSE, samplesAsCodaMCMC = TRUE)
       }
 
-    } else{
-      if (method == "EB"){
-        mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                            thin = thin, thin2 = thin2,
-                            nchains = nchain, setSeed = seedNum,
-                            summary = FALSE, samplesAsCodaMCMC = TRUE)
-      } else if (method == "EG"){
-        tryCatch(
-          {
-            mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                                thin = thin, thin2 = thin2, inits = inits_list,
-                                nchains = nchain, setSeed = seedNum,
-                                summary = FALSE, samplesAsCodaMCMC = TRUE)
-          },
-          error = function(e) {
-            stop(paste0(
-                "Optimization was not successful.\n",
-                "Likely cause: the specified lower/upper bounds are inappropriate for this dataset.\n",
-                "Recommendation: adjust the boundarys and verify initial values to enable convergence.\n",
-                "Specific error message in optim:"
-              ), conditionMessage(e), call. = FALSE)
-          }
-        )
-      } else{
-        mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                            thin = thin, thin2 = thin2, inits = inits_list,
-                            nchains = nchain, setSeed = seedNum,
-                            summary = FALSE, samplesAsCodaMCMC = TRUE)
-      }
-
-    }
-    samples <- NULL
     sampMCMC <- mcmc.out
     if (method == "EB"){
       nmcmcsamp <- nrow(sampMCMC)
@@ -615,76 +622,69 @@ gpSphere <- function(x, y,
       colnames(hype_mat) <- c("lengthscale", "amp", "sigma2")
       sampMCMC <- cbind(sampMCMC, index_mat, hype_mat)
     }
-    # if (enableWAIC){
-    #   sampMCMC <- mcmc.out$samples
-    # } else{
-    #   sampMCMC <- mcmc.out
-    # }
+
+    # Make single matrix for estimation
+    samples <- NULL
     if (nchain > 1){
       for (i in 1:nchain){
-        samples <- rbind(samples, mcmc.out[[i]])
+        samples <- rbind(samples, sampMCMC[[i]])
       }
     } else if (nchain == 1){
-      samples <- mcmc.out
+      samples <- sampMCMC
     }
-
-    end2 <- Sys.time()
-    start3 <- Sys.time()
-
-
-    if (fitted){ # posterior fitted value output (mean, median, sd)
-      message("Compute posterior fitted value")
-
-
-      # namesBeta <- paste0("lengthscale", 1:p)
-      namesLink <- paste0("linkFunction[", 1:N, "]")
-      namesSigma <- "sigma2"
-      LinkFunction_samples <- samples[, namesLink]
-      if (method == "EB"){
-        sigma2_samples <- rep(map_sigma2, nrow(LinkFunction_samples))
-      } else{
-        sigma2_samples <- samples[, namesSigma]
-      }
-      n <- nrow(LinkFunction_samples)
-      p <- ncol(LinkFunction_samples)
-
-      message("Compile function..")
-      suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
-      message("Computing predicted value..")
-      fittedValue <- cpred_fitted(LinkFunction_samples,
-                                  sigma2_samples)
-      fittedResult <- fittedValue
-
-    } else{
-      fittedResult <- NULL
-    }
-
   }
-  end3 <- Sys.time()
+  end1 <- Sys.time()
+
 
   ## Input options
   if (!sampling){
     time <- NULL
-  } else if (!fitted){
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    time <- list(samp = samp_time)
   } else{
-    samp_time <- difftime(end2, start2, units = "secs") + difftime(end1, start1, units = "secs")
-    fitted_time <- difftime(end3, start3, units = "secs")
-    time <- list(samp = samp_time, fitted = fitted_time)
+    time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
   }
 
-  inputOptions <- list(data = list(x = X, y = Y),
+  # Results ------------------------------------------------------------------
+  #Model point estimation
+  modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
                        prior = list(index = NULL,
                                     link = list(lengthscale = list(shape = shape, rate = rate),
                                                 amp = list(a_amp = a_amp, b_amp = b_amp)),
                                     sigma2 = list(shape = a_sig, rate = b_sig)),
                        init = inits_list,
+                       samplingOptions = list(lowerB = lowerB, upperB = upperB,
+                                              sampling = sampling, method = method,
+                                              monitors = monitors, niter = niter,
+                                              nburnin = nburnin, thin = thin,
+                                              nchain = nchain, setSeed = setSeed),
                        time = time)
 
-  out <- list(model = simpleModel, sampler = mcmc1, sampling = sampMCMC,
-              fitted = fittedResult, input = inputOptions,
-              modelName = "gpSphere")
-  class(out) = "bsimGp"
+  if (sampling){
+    out <- list(coefficients = modelESTLIST$coefficients,
+                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                residuals = modelESTLIST$residuals,
+                fitted.values = modelESTLIST$fitted.values,
+                linear.predictors = modelESTLIST$linear.predictors,
+                gof = modelESTLIST$gof,
+                samples = sampMCMC, # return of runMCMC
+                input = inputOptions,
+                defModel = simpleModel, defSampler = mcmc1,
+                modelName = "gpSphere")
+
+    class(out) = "bsim"
+
+
+  } else{
+    out <- list(input = inputOptions,
+                defModel = simpleModel,
+                defSampler = mcmc1,
+                modelName = "gpSphere")
+
+    class(out) = "bsimSetup"
+
+  }
   return(out)
+
+
 }
