@@ -293,11 +293,11 @@ test_that("fitted.bsim works for response/linpred and mean/median", {
   )
 
   # response, mean
-  fr <- fitted(obj, type = "response", method = "mean")
+  fr <- fitted(obj, type = "latent", method = "mean")
   expect_equal(fr, obj$fitted.values)
 
   # response, median
-  fr_med <- fitted(obj, type = "response", method = "median")
+  fr_med <- fitted(obj, type = "latent", method = "median")
   expect_length(fr_med, 2)
 
   # linpred, mean

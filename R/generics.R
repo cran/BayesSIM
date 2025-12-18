@@ -225,7 +225,7 @@ print.bsim <- function(x, digits = 3, ...){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -336,7 +336,7 @@ GOF <- function(object){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -404,7 +404,7 @@ GOF.bsim <- function(object, ...){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -462,15 +462,15 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
 #'
 #' Computes fitted values from a `BayesSIM`, using either the
 #' posterior mean or median of the estimated link function with index values.
-#' Fitted values can be returned on the response scale or on the linear
+#' Fitted values can be returned on the latent scale or on the linear
 #' predictor scale.
 #'
 #' @inheritParams genBasic
 #' @param type Character string indicating the scale on which fitted values
-#'   are returned. Default is \code{"response"}.
+#'   are returned. Default is \code{"latent"}.
 #'   \itemize{
-#'     \item \code{"response"}: fitted response values \eqn{\hat{y}}
-#'     \item \code{"linpred"}: linear predictor \eqn{X'\theta}
+#'     \item \code{"latent"}: fitted response values \eqn{\hat{y} = E(\mathbf{Y}|\mathbf{X})}.
+#'     \item \code{"linpred"}: linear predictor \eqn{X'\theta}.
 #'   }
 #' @return A numeric vector of fitted values.
 #'
@@ -504,7 +504,7 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -526,7 +526,7 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
 #' @method fitted bsim
 #' @export
 fitted.bsim <- function(object,
-                        type = c("response", "linpred"),
+                        type = c("latent", "linpred"),
                         method = c("mean", "median"),...){ # point estimate
   type <- match.arg(type)
   method <- match.arg(method)
@@ -534,7 +534,7 @@ fitted.bsim <- function(object,
   # if (class(object) != "bsim"){
   #   stop("object should be 'bsim'.")
   # }
-  if (sum(type == c("response", "linpred")) == 2){
+  if (sum(type == c("latent", "linpred")) == 2){
     type <- NULL
   }
 
@@ -543,7 +543,7 @@ fitted.bsim <- function(object,
   }
 
 
-  if (is.null(type) || type == "response"){
+  if (is.null(type) || type == "latent"){
     if (is.null(method) || method == "mean"){
       return(object$fitted.values)
 
@@ -579,7 +579,7 @@ fitted.bsim <- function(object,
     }
 
   } else{ # type error
-    stop("type could be either response or linpred.")
+    stop("type could be either latent or linpred.")
   }
 }
 
@@ -646,7 +646,7 @@ fitted.bsim <- function(object,
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -841,7 +841,7 @@ print.summary.bsim <- function(x, digits = 3, ...){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -1053,7 +1053,7 @@ nimTraceplot <- function(x, ...){
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -1083,8 +1083,6 @@ plot.bsim <- function(x, method = c("mean", "median"),
     stop("interval should be logical value.")
   }
 
-
-
   if (interval == TRUE){
     pred <- predict.bsim(x, method = method,
                     interval = "credible",
@@ -1093,6 +1091,16 @@ plot.bsim <- function(x, method = c("mean", "median"),
     pred <- predict.bsim(x, method = method,
                     alpha = alpha)
   }
+
+  # summaryResult <- list(fitted = NULL, truey = NULL,
+  #                       idxValue = NULL, level = level)
+  # summaryResult$truey <- as.vector(x$input$origdata$y)
+  # summaryResult$idxValue <- fitted(x, type = "linpred", method = method)
+  # pred <- fitted(x, method = method)
+  #
+  # if (interval == TRUE){
+  #   fitted <- data.frame(pred = pred, )
+  # }
 
   # object: fitting object
 
@@ -1204,7 +1212,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
 #' plot(fit_one)
 #'
 #' # Prediction with 95% credible interval at new data
-#' newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 #' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 #' plot(pred)
 #'
@@ -1252,7 +1260,8 @@ predict.bsim <- function(object, newdata = NULL,
     "pred_bsplineFisher",
 
     # bsSphere
-    "pred_bsplineSphere",
+    "pred_bsplineSphere","expcovTest_gpSphere",
+    "expcovTest_gpPolar","expcovnn_gpSpike",
 
     # extra
     "expcov_gpPolar", "expcov_gpSphere", "expcov_gpSpike",
@@ -1528,7 +1537,7 @@ predict.bsim <- function(object, newdata = NULL,
         end2 <- Sys.time()
       }
 
-    } else if (object$modelName == "gpSike"){
+    } else if (object$modelName == "gpSpike"){
       namesIndex <- paste0("index[", 1:train_p, "]")
       indexstarSample <- samples[, namesIndex]
       invlambdaSample <- samples[,"invlambda"]
@@ -1670,7 +1679,19 @@ getVarMonitor <- function(object, type = c("name", "list")){
 #' @param object A fitted object of \code{BayesSIM} or individual model.
 #'
 #' @details
-#' The function that contain Bayes SIM model structure in \pkg{nimble}. This function is for advanced users.
+#' The function that contain Bayes SIM model structure in \pkg{nimble}.
+#' This function is for advanced users.
+#' There are several functions used in the model definition.
+#' \itemize{
+#' \item `transX_fisher`, `transX_sp`: Making B-spline basis.
+#' \item `dvMFnim`: Distribution of von Mises-Fisher.
+#' \item `dKnotsSimple`: Distribution of the free knots for `bsSphere`.
+#' \item `dunitSphere`: Distribution of unit sphere.
+#' \item `alphaTheta`: One-to-one polar transformation. Making index vector from individual angular vector `psi`.
+#' \item `expcov_gpSphere`, `expcov_gpPolar`, `expcov_gpSpike`: Covariance kernel of each model.
+#' `expcov_gpSphere` uses squared-exponential kernel, `expcov_gpPolar` uses OU process kernel, and `expcov_gpSpike` uses squared-exponential including its own parameter, \eqn{\lambda^{-1}}.
+#' \item `Xlinear`: Making linear combination with index vector.
+#' }
 #'
 #' @return BUGS code of the model definition.
 #'

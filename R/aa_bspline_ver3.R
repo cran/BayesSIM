@@ -1,4 +1,3 @@
-#' Additional Functions for Spline
 SplineState <- nimble::nimbleList(
   x                       = double(1),
   internal_knots          = double(1),

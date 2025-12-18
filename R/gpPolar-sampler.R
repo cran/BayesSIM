@@ -136,7 +136,7 @@ MH_thetaeta <- nimbleFunction(
         z1[i, 1] <- z1[i, 1]  + xData[i, j] * newbeta[j]
       }
     }
-    z1 <- z1[(orderf),]
+    z1 <- z1[orderf,]
 
     R1 <- nimMatrix(rep(1, N), ncol = 1) %*% t(z1)
     R <- (abs(R1-t(R1)))

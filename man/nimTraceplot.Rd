@@ -49,7 +49,7 @@ GOF(fit_one)
 plot(fit_one)
 
 # Prediction with 95\% credible interval at new data
-newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 plot(pred)
 

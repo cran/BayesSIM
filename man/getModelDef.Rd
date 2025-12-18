@@ -16,7 +16,19 @@ BUGS code of the model definition.
 Functions for identifying definition of the \pkg{nimble} model.
 }
 \details{
-The function that contain Bayes SIM model structure in \pkg{nimble}. This function is for advanced users.
+The function that contain Bayes SIM model structure in \pkg{nimble}.
+This function is for advanced users.
+There are several functions used in the model definition.
+\itemize{
+\item \code{transX_fisher}, \code{transX_sp}: Making B-spline basis.
+\item \code{dvMFnim}: Distribution of von Mises-Fisher.
+\item \code{dKnotsSimple}: Distribution of the free knots for \code{bsSphere}.
+\item \code{dunitSphere}: Distribution of unit sphere.
+\item \code{alphaTheta}: One-to-one polar transformation. Making index vector from individual angular vector \code{psi}.
+\item \code{expcov_gpSphere}, \code{expcov_gpPolar}, \code{expcov_gpSpike}: Covariance kernel of each model.
+\code{expcov_gpSphere} uses squared-exponential kernel, \code{expcov_gpPolar} uses OU process kernel, and \code{expcov_gpSpike} uses squared-exponential including its own parameter, \eqn{\lambda^{-1}}.
+\item \code{Xlinear}: Making linear combination with index vector.
+}
 }
 \examples{
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)

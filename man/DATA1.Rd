@@ -1,7 +1,7 @@
 \name{DATA1}
 \alias{DATA1}
 \docType{data}
-\title{Simulated Single–index Data (n = 200, p = 4)}
+\title{Simulated Single–Index Data (n = 200, p = 4)}
 \usage{data(DATA1)}
 \format{
 \describe{

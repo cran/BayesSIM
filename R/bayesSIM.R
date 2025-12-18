@@ -72,6 +72,7 @@ BayesSIM <- function(formula, data,
   # prior_list <- 0; init_list <- 0
 
 
+
   if (link == "bspline"){
     if (indexprior == "fisher"){
 
@@ -117,7 +118,46 @@ BayesSIM <- function(formula, data,
                       thin = thin, nchain = nchain, setSeed = setSeed)
 
     } else if (indexprior == "polar"){
-      if (ncol(x) >= 5){
+      if (!is.data.frame(data)){
+        stop("data should be an data.frame.")
+      }
+
+      Call <- match.call()
+      indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+      if (indx[1] == 0L)
+        stop("a 'formula' argument is required")
+      temp <- Call[c(1L,indx)]
+      temp[[1L]] <- quote(stats::model.frame)
+      m <- eval.parent(temp)
+      Terms <- attr(m,"terms")
+      formula <- as.character(formula)
+      response.name <- formula[2]
+      data.name <- strsplit(formula[3]," \\+ ")[[1]]
+      int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+      if(data.name[1]=="."){
+        tot.name <- response.name
+      } else{
+        tot.name <- c(response.name ,data.name)
+      }
+      if(!int.flag){
+        stop("BayesSIM cannot treat interaction terms")
+      }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+               length(tot.name)){
+        stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                               tot.name))[-c(1:ncol(data))]],collapse=","),
+                   " is/are not in your data"))
+      }else{
+        origY <- data[ ,response.name]
+        if(data.name[1]=="."){
+          origX <- data[,colnames(data) != response.name]
+        }else {
+          origX <- data[ ,data.name,drop=FALSE]
+        }
+      }
+
+      # X = origX, Y = origY
+      X <- as.matrix(origX)
+      if (ncol(X) >= 5){
         fit <- gpPolarHigh(formula = formula, data = data,
                            prior = prior, init = init,
                            monitors = monitors, niter = niter, nburnin = nburnin,

@@ -6,7 +6,7 @@
 \usage{
 \method{fitted}{bsim}(
   object,
-  type = c("response", "linpred"),
+  type = c("latent", "linpred"),
   method = c("mean", "median"),
   ...
 )
@@ -15,10 +15,10 @@
 \item{object}{A fitted object of \code{BayesSIM} or individual model.}
 
 \item{type}{Character string indicating the scale on which fitted values
-are returned. Default is \code{"response"}.
+are returned. Default is \code{"latent"}.
 \itemize{
-\item \code{"response"}: fitted response values \eqn{\hat{y}}
-\item \code{"linpred"}: linear predictor \eqn{X'\theta}
+\item \code{"latent"}: fitted response values \eqn{\hat{y} = E(\mathbf{Y}|\mathbf{X})}.
+\item \code{"linpred"}: linear predictor \eqn{X'\theta}.
 }}
 
 \item{method}{Character string specifying the summary statistic used to
@@ -33,7 +33,7 @@ A numeric vector of fitted values.
 \description{
 Computes fitted values from a \code{BayesSIM}, using either the
 posterior mean or median of the estimated link function with index values.
-Fitted values can be returned on the response scale or on the linear
+Fitted values can be returned on the latent scale or on the linear
 predictor scale.
 }
 \examples{
@@ -66,7 +66,7 @@ GOF(fit_one)
 plot(fit_one)
 
 # Prediction with 95\% credible interval at new data
-newx <- data.frame(X1 = rnorm(3), X2 = rnorm(3), X3 = rnorm(3), X4 = rnorm(3))
+newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
 pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
 plot(pred)
 

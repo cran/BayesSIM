@@ -432,6 +432,12 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
   if (is.null(result$truey)){
 
     if (!interval){
+      if (is.vector(result$fitted)){
+        pred <- result$fitted
+      } else{
+        pred <- result$fitted[ ,1]
+      }
+      results <- data.frame(pred = pred, idxValue = result$idxValue)
       df_pred_line <- results[order(results$idxValue), ]
       A2 <- ggplot(df_pred_line, aes(x = idxValue)) +
         geom_point(aes(y = pred), color = "grey20", alpha = 0.55, size = 1.6) +
@@ -469,7 +475,12 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
     return(A2)
   } else{
     if (!interval){
-      results <- data.frame(truey = result$truey, pred = result$fitted,
+      if (is.vector(result$fitted)){
+        pred <- result$fitted
+      } else{ # se.fit = TRUE
+        pred <- result$fitted[ ,1]
+      }
+      results <- data.frame(truey = result$truey, pred = pred,
                             idxValue = result$idxValue)
     } else{
       results <- data.frame(truey = result$truey, pred = result$fitted[,1],
