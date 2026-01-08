@@ -1,12 +1,12 @@
-883179e72d8d5c0104de209c79cc125f *DESCRIPTION
+9cec660341f75ccf564697408407f027 *DESCRIPTION
 6620ebc6c9b781dd93c75183a58ee564 *NAMESPACE
 bdc2014bc1b036e4424a22d776dc00ce *R/BayesSIM-package.R
 c78f043868f350b6a846ff743ad522c6 *R/a_common.R
 347480b71ca8a6c99bc9c8202fe1932e *R/aa_bspline_ver3.R
-d9d7286579730a2331f653f2c0c68d09 *R/bayesSIM.R
+33e8c74a46fe83e134ffd46a11a6747b *R/bayesSIM.R
 4980da9c8cc1abf2101a6c174ba69630 *R/bsFisher-functions.R
 7ae54a7b5c7063726c62949ba5758da3 *R/bsFisher-sampler.R
-f3cfa593effe41db1c53f365222a3e35 *R/bsFisher.R
+ba47d2e4bff5a8d065d1e9fcbabaf68e *R/bsFisher.R
 9a45cd9bd469c7eb6584a1fd97e54836 *R/bsPolar.R
 b0da18a9d976c27dcdfee7bdf2fff35b *R/bsSphere-functions.R
 964b9b899b32aa5194717589a8eb3e22 *R/bsSphere-sampler.R
@@ -28,7 +28,7 @@ e30dd5e038799efebfe4c9d6b3da4d27 *R/gpspike-functions.R
 db1256a85dcced208e50e7314bceb048 *R/prior-params.R
 3d66e845ce74e069fa82fee505399c44 *R/utils.R
 28effbdf3223237e891a54a54035a575 *R/zzz.R
-9d40159f50a5fc9949cbfe95a2884126 *build/partial.rdb
+d54042561b90aafd8a9a202ea63e1e4b *build/partial.rdb
 03cc41b1833968344a5b4fa067a4beff *data/DATA1.RData
 5dc6cd37c2138b0fe72f992d703b2496 *data/concrete.RData
 95614a33b4dc73b87d9f4ffcbc8b83b4 *man/BayesSIM-package.Rd

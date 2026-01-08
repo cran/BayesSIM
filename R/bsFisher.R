@@ -3,7 +3,6 @@
 #' @description Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n}
 #' where the link \eqn{f(\cdot)} is represented by B-spline and the
 #' index vector \eqn{\theta} has von Mises–Fisher prior.
-#'
 #' @param formula an object of class \link{formula}. Interaction term is not allowed for single-index model.
 #' @param data an data frame.
 #' @param prior Optional named list of prior settings. Further descriptions are in \strong{Details} section.

@@ -1,5 +1,6 @@
 #' Integrated Function for Bayesian Single-Index Regression
 #' @importFrom utils modifyList
+#' @import nimble
 #' @description
 #' Fitting a single–index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n} in single integrated function.
 #' @inheritParams bsFisher
@@ -130,10 +131,10 @@ BayesSIM <- function(formula, data,
       temp[[1L]] <- quote(stats::model.frame)
       m <- eval.parent(temp)
       Terms <- attr(m,"terms")
-      formula <- as.character(formula)
-      response.name <- formula[2]
-      data.name <- strsplit(formula[3]," \\+ ")[[1]]
-      int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
+      formula_temp <- as.character(formula)
+      response.name <- formula_temp[2]
+      data.name <- strsplit(formula_temp[3]," \\+ ")[[1]]
+      int.flag <- any(strsplit(formula_temp[3]," \\* ")[[1]] == formula_temp[3])
       if(data.name[1]=="."){
         tot.name <- response.name
       } else{
@@ -242,7 +243,47 @@ BayesSIM_setup <- function(formula, data,
                             thin, nchain, setSeed)
 
     } else if (indexprior == "polar"){
-      if (ncol(x) >= 5){
+      if (!is.data.frame(data)){
+        stop("data should be an data.frame.")
+      }
+
+      Call <- match.call()
+      indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+      if (indx[1] == 0L)
+        stop("a 'formula' argument is required")
+      temp <- Call[c(1L,indx)]
+      temp[[1L]] <- quote(stats::model.frame)
+      m <- eval.parent(temp)
+      Terms <- attr(m,"terms")
+      formula_temp <- as.character(formula)
+      response.name <- formula_temp[2]
+      data.name <- strsplit(formula_temp[3]," \\+ ")[[1]]
+      int.flag <- any(strsplit(formula_temp[3]," \\* ")[[1]] == formula_temp[3])
+      if(data.name[1]=="."){
+        tot.name <- response.name
+      } else{
+        tot.name <- c(response.name ,data.name)
+      }
+      if(!int.flag){
+        stop("BayesSIM cannot treat interaction terms")
+      }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+               length(tot.name)){
+        stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                               tot.name))[-c(1:ncol(data))]],collapse=","),
+                   " is/are not in your data"))
+      }else{
+        origY <- data[ ,response.name]
+        if(data.name[1]=="."){
+          origX <- data[,colnames(data) != response.name]
+        }else {
+          origX <- data[ ,data.name,drop=FALSE]
+        }
+      }
+
+      # X = origX, Y = origY
+      X <- as.matrix(origX)
+
+      if (ncol(X) >= 5){
         fit <- gpPolarHigh_setup(formula = formula, data = data,
                                  prior = prior, init = init,
                                  monitors, niter, nburnin,
