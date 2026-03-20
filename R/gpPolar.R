@@ -95,25 +95,31 @@
 #' simdata <- as.data.frame(simdata)
 #' colnames(simdata) = c('x1', 'x2', 'x3', 'y','f')
 #'
+#' prior_gpPolar <- prior_param(indexprior = "polar", link = "gp",
+#'                             link_kappa_max = 2, link_kappa_grid_width = 0.05)
+#'
 #' # One tool version
 #' fit1 <- gpPolar(y ~ x1 + x2 + x3, data = simdata,
-#'                 niter = 5000, nburnin = 1000, nchain = 1)
+#'                 prior = prior_gpPolar,
+#'                 niter = 3000, nburnin = 2000, nchain = 1)
 #' fit2 <- gpPolarHigh(y ~ x1 + x2 + x3, data = simdata,
-#'                     niter = 5000, nburnin = 1000, nchain = 1)
+#'                     niter = 3000, nburnin = 2000, nchain = 1)
 #'
 #' # Split version
-#' models1 <- gpPolar_setup(y ~ x1 + x2 + x3, data = simdata)
-#' models2 <- gpPolarHigh_setup(y ~ x1 + x2 + x3, data = simdata)
+#' models1 <- gpPolar_setup(y ~ x1 + x2 + x3, data = simdata,
+#'                          prior = prior_gpPolar)
+#' models2 <- gpPolarHigh_setup(y ~ x1 + x2 + x3, data = simdata,
+#'                          prior = prior_gpPolar)
 #' Ccompile1 <- compileModelAndMCMC(models1)
 #' Ccompile2 <- compileModelAndMCMC(models2)
-#' sampler1 <- get_sampler(Ccompile1)
-#' sampler2 <- get_sampler(Ccompile2)
+#' sampler1 <- getSampler(Ccompile1)
+#' sampler2 <- getSampler(Ccompile2)
 #' initList1 <- getInit(models1)
 #' initList2 <- getInit(models2)
-#' mcmc.out1 <- runMCMC(sampler1, niter = 5000, nburnin = 1000, thin = 1,
+#' mcmc.out1 <- runMCMC(sampler1, niter = 3000, nburnin = 2000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, init = initList1,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' mcmc.out2 <- runMCMC(sampler2, niter = 5000, nburnin = 1000, thin = 1,
+#' mcmc.out2 <- runMCMC(sampler2, niter = 3000, nburnin = 2000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, init = initList2,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
 #' fit1_split <- as_bsim(models1, mcmc.out1)
@@ -259,7 +265,7 @@ gpPolar.default <- function(formula, data,
     # 2. sigma2 - gibbs
     sigma2 ~ dinvgamma(a, b)
 
-    # 3. hyperprior-kappa(MAP)
+    # 3. hyper-prior-kappa(MAP)
     kappa ~ dunif(kappa_a, kappa_b)
 
     # 4. index, psi
@@ -282,7 +288,7 @@ gpPolar.default <- function(formula, data,
     psi_c <- prior$index$psi$alpha
   }
 
-  ## sigma2 - scalar, > 0
+  ## sigma2 - scalar
   if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
     stop("Prior sigma2 (a) has incorrect value.")
   } else{
@@ -315,7 +321,7 @@ gpPolar.default <- function(formula, data,
   }
 
   # Initialize
-  init_psi <- init$link$psi
+  init_psi <- init$index$psi
   if (!is.null(init_psi) & length(init_psi) != (p-1)){
     stop("Initial psi has incorrect dimension")
   }
@@ -334,24 +340,42 @@ gpPolar.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+  seedNum <- rep(FALSE, nchain)
+
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
 
-  inits_list <- lapply(seq_len(nchain), function(j) initfunction_gpPolar(x = X, y = as.vector(Y), kappa_init = init_kappa,
+  inits_list <- lapply(seq_len(nchain), function(j) initfunction_gpPolar(xobs = X, yobs = as.vector(Y), kappa_init = init_kappa,
                                                                          sigma2_init = init_sigma2, psi_init = init_psi,
-                                                                         grid.with = kappa_grid_width,
+                                                                         grid.with = 0.1,
                                                                          sig_a = sigma2_shape, sig_b = sigma2_rate,
                                                                          setSeed = seedNum[j]))
   firstInit <- inits_list[[1]]
@@ -359,7 +383,7 @@ gpPolar.default <- function(formula, data,
 
 
 
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodel,
                              data = list(x = X,
                                          y = as.vector(Y)),
@@ -370,7 +394,7 @@ gpPolar.default <- function(formula, data,
                              inits = firstInit))
 
   # Assign samplers
-  message("Assign samplers")
+  message("== Assign samplers ==")
   # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
   monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
   suppressMessages(mcmcConf <- configureMCMC(simpleModel,
@@ -385,7 +409,7 @@ gpPolar.default <- function(formula, data,
   mcmcConf$removeSamplers(c("kappa"))
   mcmcConf$addSampler(target = c("kappa"),
                       type   = gibbsSampler_kappa,
-                      control = list(grid.width = 0.1))
+                      control = list(grid.width = kappa_grid_width))
 
   mcmcConf$removeSamplers(c("psi", "d", "linkFunction"))
   mcmcConf$addSampler(target = c("psi", "d", "linkFunction"),
@@ -403,17 +427,17 @@ gpPolar.default <- function(formula, data,
   } else{
     # Compile
     start2 <- Sys.time()
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
     end2 <- Sys.time()
 
     # Sampling
-    message("Run MCMC")
-    if (setSeed == FALSE){
+    message("== Run MCMC ==")
+    if (is.logical(setSeed)) {
       seedNum <- setSeed
     }
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,

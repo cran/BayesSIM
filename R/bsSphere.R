@@ -84,7 +84,7 @@
 #' # Split version
 #' models <- bsSphere_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                    nchains = 1, setSeed = TRUE, inits = initList,
@@ -401,17 +401,35 @@ bsSphere.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+  seedNum <- rep(FALSE, nchain)
+
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
@@ -427,7 +445,7 @@ bsSphere.default <- function(formula, data,
 
 
   # Build model
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
                                               data = list(X = X, Y = Y),
                                               constants = list(p = p, N = N, r1 = r1, r2 = r2,
@@ -438,7 +456,7 @@ bsSphere.default <- function(formula, data,
                                               inits = firstInit))
 
   # Assign samplers
-  message("Assign samplers")
+  message("== Assign samplers ==")
   # List that is needed for fitting the model
   monitorsList <- c("index", "nu", "sigma2", "linkFunction", "beta",
                     "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
@@ -480,9 +498,9 @@ bsSphere.default <- function(formula, data,
   } else{
     # Compile
     start2 <- Sys.time()
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
@@ -490,9 +508,9 @@ bsSphere.default <- function(formula, data,
 
     # Sampling
 
-    message("Run MCMC")
+    message("== Run MCMC ==")
     mcmc.out <- NULL
-    if (setSeed == FALSE){
+    if (is.logical(setSeed)) {
       seedNum <- setSeed
     }
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,

@@ -106,7 +106,7 @@ The variance \eqn{\sigma^2} is directly sampled from posterior distribution.
 \strong{Prior hyper-parameters}
 These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
-\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+\item Index vector: \code{index_r1, index_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
 For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
 \item Link function: Inverse gamma prior is assigned for hyper-parameters \eqn{\lambda^{-1}}
 \code{link_inv_lambda_shape} is shape parameter and \code{link_inv_lambda_rate} is rate parameter of inverse gamma distribution.
@@ -150,7 +150,7 @@ fit1 <- gpSpike(y ~ ., data = simdata,
 # Split version
 models <- gpSpike_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
                     nchains = 1, setSeed = TRUE, inits = initList,

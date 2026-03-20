@@ -1,43 +1,50 @@
 
 # Additional functions for gpPolar
-initfunction_gpPolar <- function(x, y, kappa_init, sigma2_init, psi_init = NULL, grid.with = 0.1,
+initfunction_gpPolar <- function(xobs, yobs, kappa_init, sigma2_init, psi_init = NULL, grid.with = 0.1,
                          sig_a = 1, sig_b = 0.01, setSeed){
 
   if (setSeed != FALSE){
     set.seed(setSeed)
   }
 
-  n <- dim(x)[1]
-  p <- dim(x)[2]
+  n <- dim(xobs)[1]
+  p <- dim(xobs)[2]
   theta <- matrix(0,p-1,1)
-  theta[,1] <- ifelse(is.null(psi_init), runif(p-1, 0, pi), psi_init)
+  if (is.null(psi_init)){
+    theta[,1] <- runif(p-1, 0, pi)
+  } else{
+    theta[,1] <- psi_init
+  }
+  # theta[,1] <- ifelse(is.null(psi_init), runif(p-1, 0, pi), psi_init)
   thetat <- theta
   parabeta <- betaalpha1(thetat)
 
   #Converting theta to alpha
   alphahat<-matrix(0,p,1) # p*1 matrix
   alphahat[,1] <- alphaTheta(theta)
-  Xlin <-x %*% alphahat
+
+  Xlin <-xobs %*% alphahat
   storeorder <- order(Xlin)
 
   #Ordering x and y for fitting OU process
-  yobs <- y[order(Xlin)]
-  xobs <- x[order(Xlin)]
+  y <- yobs[storeorder]
+  Xlin <- Xlin[storeorder]
 
   #Finding inverse of C
   Cinv <- invcov(Xlin, kappa_init)
 
   #generate from f
-  sigma2 <-(sigma2_init^2) #Initial sigma^2
+  sigma2 <-sigma2_init #Initial sigma^2
   Sigma <- solve(Cinv+diag(n)/sigma2)
-  mu <- (Sigma %*% yobs)/sigma2
+  mu <- (Sigma %*% y)/sigma2
   f <- mvrnorm(1,mu=mu,Sigma=Sigma,tol=1e-8)
 
   #Generate from sigma2
-  a <- sig_a;
-  b <- sig_b;
-  err <- sum((yobs-f)^2)/2
-  sigma2 <-1/rgamma(1,shape=(a+n/2),rate=(b+err))
+  a <- sig_a
+  b <- sig_b
+  err <- sum((y-f)^2)/2
+  sigma2 <-1/rgamma(1,shape=(a+n/2), rate=(b+err))
+
 
   thetaNum <- seq(0.01, pi-0.01, grid.with)
   thetas  <- do.call(expand.grid,
@@ -45,9 +52,10 @@ initfunction_gpPolar <- function(x, y, kappa_init, sigma2_init, psi_init = NULL,
   thetas<-as.matrix(thetas)
   num.calc<-dim(thetas)[1]
   g <- f[order(storeorder)]
+  # cat("second g": g[1:10], "\n")
 
-  PP1 <- apply(thetas,1,function(theta) optimized(g,x,kappa_init,theta,p))
-  theta <- thetas[which.max(PP1),]
+  PP1 <- apply(thetas,1,function(x) optimized(g,xobs,kappa_init,x,p))
+  theta <- thetas[which.max(PP1), ]
 
   thetat <- theta
   parabeta <- betaalpha1(thetat)
@@ -56,27 +64,35 @@ initfunction_gpPolar <- function(x, y, kappa_init, sigma2_init, psi_init = NULL,
   alphahat<-matrix(0,p,1)
   alphahat[,1] <- alphaTheta(theta)
 
-
-  Xlin <- x %*% alphahat
+  Xlin <- xobs %*% alphahat
   storeorder <- order(Xlin)
-  yobs<-y[order(Xlin)]
-  xobs<-x[order(Xlin)]
+  y<-yobs[storeorder]
+  Xlin<-Xlin[storeorder]
 
   #Finding inverse of C
   Cinv <- invcov(Xlin, kappa_init)
 
 
   #generate from f
-  sigma2<-(sigma2_init^2)
+  sigma2<-sigma2_init
   Sigma<-solve(Cinv+diag(n)/sigma2)
-  mu<-(Sigma %*% yobs)/sigma2
+  mu<-(Sigma %*% y)/sigma2
   f <- mvrnorm(1,mu=mu,Sigma=Sigma,tol=1e-8)
 
+
   #Generate from sigma2
-  # a=7;
-  # b=2;
-  err<-sum((yobs-f)^2)/2
+  err<-sum((y-f)^2)/2
   sigma2<-1/rgamma(1,shape=(a+n/2),rate=(b+err))
+
+
+
+  Sigma <- solve(Cinv+diag(n)/sigma2)
+  mu <- (Sigma %*% y)/sigma2
+  f <- mvrnorm(1,mu=mu,Sigma=Sigma,tol=1e-8)
+
+  # Xlin, f is ordered
+  Xlin <- Xlin[order(storeorder)]
+  f <- f[order(storeorder)]
 
   TEMPlist <- list(psi_init = theta, index_init = alphahat[,1],
             kappa_init = kappa_init, Xlin_init = Xlin, d_init = parabeta[,2],
@@ -85,7 +101,7 @@ initfunction_gpPolar <- function(x, y, kappa_init, sigma2_init, psi_init = NULL,
   init_psi <- TEMPlist$psi_init/pi
   init_index <- TEMPlist$index_init
   init_kappa <- TEMPlist$kappa_init
-  init_Xlin <- TEMPlist$Xlin_init[,1]
+  init_Xlin <- TEMPlist$Xlin_init
   init_cov <- expcov_gpPolar(init_Xlin, init_kappa)
   init_sigma2 <- TEMPlist$sigma2_init
   init_linkFunction <- TEMPlist$linkFunction_init
@@ -153,7 +169,7 @@ alphaTheta <- nimbleFunction(
   run = function(theta = double(1)){
     returnType(double(1))
     p <- length(theta) + 1
-    alpha <- numeric(p)
+    alpha <- nimNumeric(p, init = TRUE)
     for (i in 1:p){
       if (i == 1){
         alpha[i] <- sin(theta[i])
@@ -199,31 +215,37 @@ invcov <- nimbleFunction(
   run = function(xlin = double(1), kappa = double(0)){
     returnType(double(2))
     # sort Xlin
-    sortedXlin <- nimSort(xlin) ## needs to be coded
+    # sortedXlin <- nimSort(xlin) ## needs to be coded
     n <- length(xlin)
 
     r <- nimNumeric(n+1, init = TRUE)
-    r[2:n] <- exp(-kappa*(sortedXlin[2:n]-sortedXlin[1:(n-1)]))
+    r[2:n] <- exp(-kappa*(xlin[2:n]-xlin[1:(n-1)]))
+    r[1] <- 0; r[n+1] <- 0
+    # nimCat("r: ", r[1:5], "\n")
 
 
-    q <- nimNumeric(n+1, init = TRUE)
-    denom <- 1 - r^2
-    for (i in 1:(n+1)) {
-      if (abs(denom[i]) < 1e-8) denom[i] <- 1e-8
-    }
-    q <- r / denom
+    e <- nimNumeric(n+1, init = TRUE)
+    denom <- 1 - (r^2)
+    # for (i in 1:(n+1)) {
+    #   if (abs(denom[i]) < 1e-10) {
+    #     denom[i] <- 1e-10
+    #   }
+    # }
+    e <- r / denom
+    # nimCat("e: ", e[1:5], "\n")
 
-    s <- nimNumeric(n, init = TRUE)
-    s <- 1 + r[1:n]*q[1:n] + r[2:(n+1)]*q[2:(n+1)]
+    d <- nimNumeric(n, init = TRUE)
+    d <- 1 + r[1:n]*e[1:n] + r[2:(n+1)]*e[2:(n+1)]
+    # nimCat("d: ", d[1:5], "\n")
 
-    # tridiagonal
-    Cinv <- nimMatrix(0,nrow = n, ncol = n)
+    # tri-diagonal
+    Cinv <- nimMatrix(0, nrow = n, ncol = n)
     for(i in 1:(n-1)){
-      Cinv[i, i] <- s[i]
-      Cinv[i,i+1] <- -q[i+1]
-      Cinv[i+1,i] <- -q[i+1]
+      Cinv[i, i] <- d[i]
+      Cinv[i,i+1] <- -e[i+1]
+      Cinv[i+1,i] <- -e[i+1]
     }
-    Cinv[n, n] <- s[n]
+    Cinv[n, n] <- d[n]
 
 
     return(Cinv)
@@ -242,7 +264,7 @@ expcov_gpPolar <- nimbleFunction(
         result[i, j] <- exp(-kappa * abs(vec[i] - vec[j]))
       }
     }
-    result = (result + t(result))/2 + diag(rep(1e-4, n))
+    result = (result + t(result))/2 #  + diag(rep(1e-10, n))
 
     return(result)
 
@@ -267,24 +289,38 @@ expcovTest_gpPolar <- nimbleFunction(
 
 
 obj_btt_theta <- nimbleFunction(
-  setup = function(model, p) {
-    p_local <- p
+  setup = function(model) {
   },
-  run = function(par = double(1)) {
+  run = function(par = double(1), kappa = double(0),
+                 linkFunction = double(1)) {
     returnType(double(0))
-    theta <- par[1:p_local]
+    # theta <- par
 
-    beta <- alphaTheta(theta*pi)
-    n = nimDim(model$x)[1]
-    Xlin <- Xlinear(beta, model$x)
+    # beta <- alphaTheta(theta*pi)
+    beta <- alphaTheta(par)
+    # nimPrint(beta)
+    X <- model$x
+    n <- nimDim(X)[1]
+    Xlin <- X %*% nimMatrix(beta, ncol = 1)
+    XlinVec <- Xlin[,1]
+    orderf <- nimOrder(XlinVec)
 
-    kappa <- model$kappa[1]
-    inv_cov <- invcov(Xlin, kappa)
-    orderf <- nimOrder(Xlin)
-    f <- model$linkFunction[orderf]
+    sortXlin <- XlinVec[orderf]
+    f <- linkFunction[orderf]
+    # nimCat("sortXlin: ", sortXlin[1:10], "\n")
+    # nimCat("sortf: ", f[1:10], "\n")
+
+    # kappa <- model$kappa[1]
+    inv_cov <- invcov(sortXlin, kappa)
     matF <- nimMatrix(f, ncol = 1)
-    lp <- dmnorm_chol(f, mean = rep(0, n),
-                      cholesky = chol(inv_cov), prec_param = TRUE, log=TRUE)
+    # lp <- dmnorm_chol(f, mean = rep(0, n),
+    #                   cholesky = chol(inv_cov),
+    #                   prec_param = TRUE, log=TRUE)
+    lp1 <- 0.5 * log(det(inv_cov))
+    # nimCat("lp1: ", lp1, "\n")
+    lp2 <- - 0.5 * t(matF) %*% inv_cov %*% matF
+    # nimCat("lp2: ", lp2[1,1], "\n")
+    lp <-  lp1 + lp2[1,1]
     return(lp)
   }
 )
@@ -294,8 +330,8 @@ thetaPrior <- nimbleFunction(
   run = function(theta = double(1)) {
     returnType(double(0))
     logP <- 0.0
-    p_1    <- nimDim(theta)[1]
-    p    <- p_1 + 1
+    p_1    <- nimDim(theta)[1] # 2
+    p    <- p_1 + 1 # 3
     for(j in 1:p_1) {
       logP <- logP + (p - j) * log(abs(cos(theta[j])))
     }

@@ -157,7 +157,7 @@ fit1 <- bsPolar(y ~ ., data = simdata,
 # Split version
 models <- bsPolar_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
                    nchains = 1, setSeed = TRUE, inits = initList,

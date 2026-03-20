@@ -92,7 +92,10 @@ SamplingThetaV_gp_spike <- nimbleFunction(
       }
       newTheta[idx] <- proposalTheta
 
-      if (sum(newTheta) < 0){
+      # newIndex <- newTheta/sqrt(sum(newTheta^2))
+
+      # if (sum(newTheta) < 0){
+      if (newTheta[1] < 0){
         newTheta <- (-1) * newTheta
       }
 
@@ -131,7 +134,8 @@ SamplingThetaV_gp_spike <- nimbleFunction(
       beforell <- RllFunThetaV2$run(idx) # compute
       proposalTheta <- rnorm(1, theta_raw[idx], jump)
       newTheta[idx] <- proposalTheta
-      if (sum(newTheta) < 0){
+      # newIndex <- newTheta/sqrt(sum(newTheta^2))
+      if (newTheta[1] < 0){
         newTheta <- (-1) * newTheta
       }
 

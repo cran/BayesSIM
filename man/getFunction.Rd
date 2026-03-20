@@ -2,20 +2,20 @@
 % Please edit documentation in R/generics.R
 \name{getFunction}
 \alias{getFunction}
-\alias{get_model}
-\alias{get_sampler}
+\alias{getModel}
+\alias{getSampler}
 \title{Get nimbleModel and nimbleSampler Object from the Result of \code{compileModelAndMCMC}}
 \usage{
-get_model(object)
+getModel(object)
 
-get_sampler(object)
+getSampler(object)
 }
 \arguments{
 \item{object}{The result of \code{compileModelAndMCMC} function.}
 }
 \value{
-\code{get_model} returns compiled Nimble model object.
-\code{get_sampler} returns compiled Nimble sampler object, directly using in \code{runMCMC} function.
+\code{getModel} returns compiled Nimble model object.
+\code{getSampler} returns compiled Nimble sampler object, directly using in \code{runMCMC} function.
 }
 \description{
 Return compiled nimble model object and a corresponding MCMC samplers.
@@ -32,7 +32,7 @@ fit_one <- BayesSIM(y ~ ., data = simdata2,
 # 2. Split version
 models <- BayesSIM_setup(y ~ ., data = simdata2)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
                     nchains = 1, setSeed = TRUE, inits = initList,

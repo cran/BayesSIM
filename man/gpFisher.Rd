@@ -142,7 +142,7 @@ fit1 <- gpFisher(y ~ ., data = simdata, nchain = 1, niter = 1000, nburnin = 100)
 # Split version
 models <- gpFisher_setup(y ~ ., data = simdata, nchain = 1)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
                    nchains = 1, setSeed = TRUE, inits = initList,

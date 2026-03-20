@@ -210,17 +210,34 @@ gpPolarHigh.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
@@ -233,7 +250,7 @@ gpPolarHigh.default <- function(formula, data,
 
 
 
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodel,
                              data = list(x = X,
                                          y = as.vector(Y)),
@@ -244,7 +261,7 @@ gpPolarHigh.default <- function(formula, data,
                              inits = firstInit))
 
   # Assign samplers
-  message("Assign samplers")
+  message("== Assign samplers ==")
   # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
   monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
   suppressMessages(mcmcConf <- configureMCMC(simpleModel,
@@ -268,16 +285,16 @@ gpPolarHigh.default <- function(formula, data,
   } else{
     start2 <- Sys.time()
     # Compile
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
     end2 <- Sys.time()
     # Sampling
-    message("Run MCMC")
-    if (setSeed == FALSE){
+    message("== Run MCMC ==")
+    if (is.logical(setSeed)) {
       seedNum <- setSeed
     }
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,

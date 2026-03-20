@@ -74,7 +74,7 @@ plot(pred)
 # 2. Split version
 models <- BayesSIM_setup(y ~ ., data = simdata2)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
                     nchains = 1, setSeed = TRUE, inits = initList,

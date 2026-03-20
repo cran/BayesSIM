@@ -24,7 +24,7 @@ The function summarizes posterior MCMC samples by reporting key statistics, incl
 \item Posterior mean and median
 \item Empirical standard deviation
 \item 95\% credible interval (lower and upper quantiles)
-\item Potential scale reduction factor (\code{gelman}) for multiple chains
+\item Potential scale reduction factor (\code{Rhat}) for multiple chains
 \item Effective sample size (\code{ESS})
 }
 
@@ -81,7 +81,7 @@ plot(pred)
 # 2. Split version
 models <- BayesSIM_setup(y ~ ., data = simdata2)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
                     nchains = 1, setSeed = TRUE, inits = initList,

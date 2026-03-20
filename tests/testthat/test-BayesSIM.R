@@ -138,7 +138,7 @@ test_that("bsFisher_setup runs and returns bsimSetup", {
       nchain   = 2,
       setSeed  = "wrong_type"
     ),
-    "'setSeed' argument should be logical or numeric vector."
+    "'setSeed' must be logical or numeric."
   )
 
   y  <- rnorm(10)

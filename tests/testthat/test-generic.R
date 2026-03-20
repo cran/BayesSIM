@@ -42,7 +42,8 @@ test_that("bsim.predict constructor builds bsimPred object", {
     fitted   = data.frame(mean = 1:3),
     truey    = 1:3,
     idxValue = c(0.1, 0.2, 0.3),
-    level    = 0.95
+    level    = 0.95,
+    type = "response"
   )
 
   expect_s3_class(obj, "bsimPred")
@@ -183,7 +184,7 @@ test_that("coef.bsim returns mean coefficients and SE when requested", {
 
   co_se <- coef.bsim(obj, method = "mean", se = TRUE)
   expect_true(is.matrix(co_se))
-  expect_equal(rownames(co_se), c("est", "Std.error"))
+  expect_equal(rownames(co_se), c("Estimate (mean)", "SE"))
 })
 
 test_that("coef.bsim with median uses sampleBind and MAD", {
@@ -399,7 +400,8 @@ test_that("plot.bsim calls predict.bsim and plot_bsim_fitted with correct interv
         fitted   = data.frame(mean = c(1, 2)),
         truey    = c(1, 2),
         idxValue = c(0.1, 0.2),
-        level    = 0.95
+        level    = 0.95,
+        type = "response"
       )
     },
     plot_bsim_fitted = function(pred, interval) {
@@ -568,12 +570,12 @@ test_that("compileModelAndMCMC compiles nimble model and sampler", {
   expect_true("sampler" %in% names(res))
 })
 
-test_that("get_model and get_sampler extract compiled objects", {
+test_that("getModel and getSampler extract compiled objects", {
   obj <- list(
     model   = "compiled_model_stub",
     sampler = "compiled_sampler_stub"
   )
 
-  expect_equal(get_model(obj), "compiled_model_stub")
-  expect_equal(get_sampler(obj), "compiled_sampler_stub")
+  expect_equal(getModel(obj), "compiled_model_stub")
+  expect_equal(getSampler(obj), "compiled_sampler_stub")
 })

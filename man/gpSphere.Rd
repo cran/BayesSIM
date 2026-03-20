@@ -170,7 +170,7 @@ fit1 <- gpSphere(y ~ ., method = "EB", data = simdata,
 # Split version
 models <- gpSphere_setup(y ~ ., method = "EB", data = simdata)
 Ccompile <- compileModelAndMCMC(models)
-nimSampler <- get_sampler(Ccompile)
+nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
                     nchains = 1, setSeed = TRUE, inits = initList,

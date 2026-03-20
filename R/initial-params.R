@@ -93,7 +93,11 @@ init_param <- function(
   )
 
   if (indexprior == "spike"){ #bsSpike, gpSpike
-    arg_map$index <- "index.index"
+    arg_map["index"] <- "index.index"
+  }
+
+  if (indexprior == "sphere" & link == "bspline"){
+    arg_map["index"] <- "index.index"
   }
 
   ## 3. apply overrides

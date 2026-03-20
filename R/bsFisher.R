@@ -106,7 +106,7 @@
 #' # Split version
 #' models <- bsFisher_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                    nchains = 1, setSeed = TRUE, inits = initList,
@@ -390,17 +390,34 @@ bsFisher.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
@@ -414,7 +431,7 @@ bsFisher.default <- function(formula, data,
   firstInit <- inits_list[[1]]
 
   # Build model
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(
     simpleModel <- nimbleModel(Rmodel,
                                data = list(X = X, Y = Y),
@@ -427,7 +444,7 @@ bsFisher.default <- function(formula, data,
 
 
   # Assign samplers
-  message("Assign samplers")
+  message("== Assign samplers ==")
   monitorsList_essential <- c("index", "sigma2")
   # Add parameters for fitting
   monitorsList <- c(monitorsList_essential, "linkFunction", "Xlin", "beta")
@@ -447,7 +464,11 @@ bsFisher.default <- function(formula, data,
   mcmcConf$addSampler(target = c("beta"),
                       type   = betaSampler_bspline_fisher)
 
-  mcmcConf$setSamplerExecutionOrder(c(2, 3, 1))
+  mcmcConf$removeSamplers(c("sigma2"))
+  mcmcConf$addSampler(target = c("sigma2"),
+                      type   = sigma2Sampler_bspline_fisher)
+
+  # mcmcConf$setSamplerExecutionOrder(c(2, 3, 1))
 
 
   mcmc1 <- buildMCMC(mcmcConf)
@@ -456,19 +477,18 @@ bsFisher.default <- function(formula, data,
   if (!sampling){} else{
     # Compile
     start2 <- Sys.time()
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel, resetFunctions = TRUE))
     end2 <- Sys.time()
 
     # Sampling
-    message("Run MCMC")
-    mcmc.out <- NULL
-    if (setSeed == FALSE){
+    message("== Run MCMC ==")
+    if (is.logical(setSeed)) {
       seedNum <- setSeed
     }
-
+    mcmc.out <- NULL
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
                         thin = thin,
                         nchains = nchain, setSeed = seedNum,
@@ -494,7 +514,7 @@ bsFisher.default <- function(formula, data,
   }
 
   # Results ------------------------------------------------------------------
-  #Model point estimation
+  # Model point estimation
   modelESTLIST <- bsimFit_pointest(samples, X, Y)
 
   # input options

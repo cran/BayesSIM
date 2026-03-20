@@ -43,13 +43,14 @@ bsimSetup <- function(coefficients, ses, residuals,
   )
 }
 
-bsim.predict <- function(fitted, truey, idxValue, level){
+bsim.predict <- function(fitted, truey, idxValue, level, type){
   structure(
     list(
       fitted = fitted,
       truey = truey,
       idxValue = idxValue,
-      level = level
+      level = level,
+      type = type
     ),
     class = "bsimPred"
   )
@@ -79,7 +80,7 @@ bsim.predict <- function(fitted, truey, idxValue, level){
 #' simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                    nchains = 1, setSeed = TRUE, inits = initList,
@@ -166,6 +167,7 @@ print.bsim <- function(x, digits = 3, ...){
                     empirical.se = x$ses_coef)
 
     rownames(A) <- names(x$coefficients)
+    colnames(A) <- c("Estimate (mean)", "SE")
 
     print(round(A, digits))
 
@@ -233,7 +235,7 @@ print.bsim <- function(x, digits = 3, ...){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -271,7 +273,7 @@ coef.bsim <- function(object, method = c("mean", "median"), se = FALSE, ...){
     coefVector <- coefficients_median
 
   } else{
-    stop("method could be either mean or median.")
+    stop("'method' argument could be either mean or median.")
   }
 
   if (se){
@@ -281,7 +283,7 @@ coef.bsim <- function(object, method = c("mean", "median"), se = FALSE, ...){
       se.est <- apply(ALLsamp[ ,namesIndex], 2, function(x) mad(x))
     }
     matResult <- rbind(coefVector, se.est)
-    rownames(matResult) <- c("est", "Std.error")
+    rownames(matResult) <- c(paste0("Estimate (", method, ")"), "SE")
     return(matResult)
   } else{
     return(coefVector)
@@ -344,7 +346,7 @@ GOF <- function(object){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -412,7 +414,7 @@ GOF.bsim <- function(object, ...){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -453,7 +455,7 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
     return(residuals.median)
 
   } else{
-    stop("method could be either mean or median.")
+    stop("'method' argument could be either mean or median.")
   }
 
 }
@@ -512,7 +514,7 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -558,7 +560,7 @@ fitted.bsim <- function(object,
       return(as.vector(fitted.median))
 
     } else{ # method error
-      stop("method could be either mean or median.")
+      stop("'method' argument could be either mean or median.")
     }
   } else if (type == "linpred"){
     N <- nrow(object$input$origdata$x)
@@ -575,11 +577,11 @@ fitted.bsim <- function(object,
       return(as.vector(linpred.median))
 
     } else{ # method error
-      stop("method could be either mean or median.")
+      stop("'method' argument could be either mean or median.")
     }
 
   } else{ # type error
-    stop("type could be either latent or linpred.")
+    stop("'type' argument could be either latent or linpred.")
   }
 }
 
@@ -603,7 +605,7 @@ fitted.bsim <- function(object,
 #'   \item Posterior mean and median
 #'   \item Empirical standard deviation
 #'   \item 95% credible interval (lower and upper quantiles)
-#'   \item Potential scale reduction factor (\code{gelman}) for multiple chains
+#'   \item Potential scale reduction factor (\code{Rhat}) for multiple chains
 #'   \item Effective sample size (\code{ESS})
 #' }
 #'
@@ -654,7 +656,7 @@ fitted.bsim <- function(object,
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -667,12 +669,11 @@ fitted.bsim <- function(object,
 #'
 #' @seealso \code{\link[coda]{gelman.diag}}, \code{\link[coda]{effectiveSize}}
 #' @export
-#'
 summary.bsim <- function(object, ...){
   p <- ncol(object$input$origdata$x)
   nchain <- object$input$samplingOptions$nchain
   namesVar <- colnames(object$input$origdata$x)
-  printIndex <- paste0("index_", namesVar)
+  printIndex <- namesVar
   namesIndex <- paste0("index[", 1:p, "]")
   namesSigma <- "sigma2"
   namesExtra <- character(0)
@@ -747,6 +748,7 @@ summary.bsim <- function(object, ...){
 
       stat_df <- as.data.frame(t(stat_mat))
       stat_df$ess <- coda::effectiveSize(subTemp)
+      colnames(stat_df) <- c("Mean", "Median", "SD", "CI_lower", "CI_upper", "ESS")
       rownames(stat_df) <- param_names_list
 
       return(stat_df)
@@ -771,7 +773,7 @@ summary.bsim <- function(object, ...){
       tempALL <- summarize_one_chain(all_sub)
       gel     <- as.vector(coda::gelman.diag(sampObj[,param_names_order],
                                              multivariate = FALSE)$psrf[, 1])
-      tempALL$gelman <- gel
+      tempALL$Rhat <- gel
       finalSummaryList$all.chain <- tempALL
     }
     return(finalSummaryList)
@@ -791,11 +793,11 @@ summary.bsim <- function(object, ...){
 print.summary.bsim <- function(x, digits = 3, ...){
   cat("Summary statistics of all chains\n")
   tempTable <- x$all.chain
-  if ("gelman" %in% colnames(tempTable)){
-    tempTable$gelman[is.nan(tempTable$gelman)] <- NA
-    tempTable$gelman <- round(tempTable$gelman, digits = digits)
-    tempTable$gelman <- as.character(tempTable$gelman)
-    tempTable$gelman[is.na(tempTable$gelman)] <- "-"
+  if ("Rhat" %in% colnames(tempTable)){
+    tempTable$Rhat[is.nan(tempTable$Rhat)] <- NA
+    tempTable$Rhat <- round(tempTable$Rhat, digits = digits)
+    tempTable$Rhat <- as.character(tempTable$Rhat)
+    tempTable$Rhat[is.na(tempTable$Rhat)] <- "-"
   }
   print(tempTable, digits = digits)
 }
@@ -849,7 +851,7 @@ print.summary.bsim <- function(x, digits = 3, ...){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1061,7 +1063,7 @@ nimTraceplot <- function(x, ...){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1080,7 +1082,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
   method <- match.arg(method)
 
   if (!is.logical(interval)){
-    stop("interval should be logical value.")
+    stop("'interval' argument should be logical value.")
   }
 
   if (interval == TRUE){
@@ -1113,6 +1115,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
 #' Generate predictions from a fitted Bayesian single-index model.
 #'
 #' @param object A fitted object of \code{BayesSIM} or individual model.
+#' @param x An object of class "bsimPred" which is the result of \code{predict}.
 #' @param newdata Optional data frame for which predictions should be made.
 #'   If `NULL`, predictions are returned for the training data.
 #' @param se.fit A logical value indicating whether standard errors are required.
@@ -1220,7 +1223,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1231,6 +1234,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
 #'
 #' }
 #' @method predict bsim
+#' @name predict
 #' @export
 predict.bsim <- function(object, newdata = NULL,
                          se.fit = FALSE,
@@ -1332,7 +1336,7 @@ predict.bsim <- function(object, newdata = NULL,
   }
 
   if (!(type %in% c("index", "latent", "response"))){
-    stop("type arugment is incorrect.")
+    stop("'type' arugment is incorrect.")
   }
 
   # ------------------------------------------------------------------
@@ -1408,11 +1412,11 @@ predict.bsim <- function(object, newdata = NULL,
       degree <- object$input$prior$link$basis$degree
       namesBeta <- paste0("beta[", 1:maxknots, ", 1]")
       betaSample <- samples[,namesBeta]
-      mina <- samples[,"a_alpha"]
-      maxb <- samples[,"b_alpha"]
+      mina <- samples[ ,"a_alpha"]
+      maxb <- samples[ ,"b_alpha"]
 
 
-      message("Compile function..")
+      message("Compiling functions..")
       suppressMessages(
         cpred_bsplineSphere <- compileNimble(pred_bsplineSphere)
       )
@@ -1455,7 +1459,7 @@ predict.bsim <- function(object, newdata = NULL,
       end1 <- Sys.time()
 
 
-      message("Compile function..")
+      message("Compiling functions..")
       suppressMessages(
         cpred_bsplineFisher <- compileNimble(pred_bsplineFisher)
       )
@@ -1488,7 +1492,7 @@ predict.bsim <- function(object, newdata = NULL,
       ampSample <- samples[ ,"amp"]
       # newdataMat <- as.matrix(newdataX)
 
-      message("Compile function..")
+      message("Compiling functions..")
       suppressMessages(
         cpred_gpSphere <- compileNimble(pred_gpSphere)
       )
@@ -1516,7 +1520,7 @@ predict.bsim <- function(object, newdata = NULL,
       kappaSample <- samples[ , "kappa"]
       newdataMat <- as.matrix(newdataX)
 
-      message("Compile function..")
+      message("Compiling functions..")
       suppressMessages(
         cpred_gpPolar <- compileNimble(pred_gpPolar)
       )
@@ -1538,12 +1542,14 @@ predict.bsim <- function(object, newdata = NULL,
       }
 
     } else if (object$modelName == "gpSpike"){
-      namesIndex <- paste0("index[", 1:train_p, "]")
-      indexstarSample <- samples[, namesIndex]
+      # namesIndex <- paste0("index[", 1:train_p, "]")
+      namesIndexstar <- paste0("indexstar[", 1:train_p, "]")
+      indexstarSample <- samples[, namesIndexstar]
       invlambdaSample <- samples[,"invlambda"]
-      newdataMat <- as.matrix(scale(newdataX))
+      newdataMat <- as.matrix(newdataX)
+      # newdataMat <- as.matrix(scale(newdataX))
 
-      message("Compile function..")
+      message("Compiling functions..")
       suppressMessages(
         cpred_gpSpike <- compileNimble(pred_gpSpike)
       )
@@ -1575,14 +1581,14 @@ predict.bsim <- function(object, newdata = NULL,
   alpha <- 1-level
   fittedResult <- data.frame(mean = apply(testPred, 2, mean),
                              median = apply(testPred, 2, median),
-                             se = apply(testPred, 2, sd),
+                             SE = apply(testPred, 2, sd),
                              LB = apply(testPred, 2, quantile, probs = alpha/2, na.rm = TRUE),
                              UB = apply(testPred, 2, quantile, probs = 1-alpha/2, na.rm = TRUE))
 
   # interval, se
-  Name <- c("mean", "median", "se", "LB", "UB")
+
   if (se.fit){
-    Name <- c(method, "se")
+    Name <- c(method, "SE")
   } else{
     Name <- method
   }
@@ -1593,20 +1599,174 @@ predict.bsim <- function(object, newdata = NULL,
   end1 <- Sys.time()
 
   summaryResult <- list(fitted = NULL, truey = NULL,
-                        idxValue = NULL, level = level)
+                        idxValue = NULL, level = level,
+                        type = type)
 
 
-  summaryResult$fitted <- fittedResult[ ,Name]
+  summaryResult$fitted <- as.data.frame(fittedResult[ ,Name])
   summaryResult$truey <- newdataY # if predIncluded = FALSE, truey = NULL
   if (method == "mean"){
+    colnames(summaryResult$fitted)[1] <- "Mean"
     summaryResult$idxValue <- apply(indexValueMatrix, 2, mean)
   } else if (method == "median"){
+    colnames(summaryResult$fitted)[1] <- "Median"
     summaryResult$idxValue <- apply(indexValueMatrix, 2, median)
   }
 
   class(summaryResult) <- "bsimPred"
   invisible(summaryResult)
 
+}
+
+#' @rdname predict
+#' @export
+print.bsimPred <- function(x, ...){
+  cat("Prediction object of BayesSIM\n")
+  n <- length(x$truey)
+  cat("  n:", n, "\n")
+
+  cat("\nPrediction summary:\n")
+
+  if (is.data.frame(x$fitted)) {
+
+    f_names <- names(x$fitted)
+
+    predType <- x$type
+    if ("response" == predType){
+      cat("  - Type : Response \n")
+    } else if ("latent" == predType){
+      cat("  - Type : Latent \n")
+    } else if ("index" == predType){
+      cat("  - Type : Index \n")
+    }
+
+
+    if ("Mean" %in% f_names){
+      cat("  - Mean : Posterior mean prediction\n")
+    } else if ("Median" %in% f_names){
+      cat("  - Median : Posterior median prediction\n")
+    }
+
+
+    if ("SE" %in% f_names)
+      cat("  - SE   : Posterior standard error\n")
+
+    if (all(c("LB", "UB") %in% f_names)) {
+      cat("  - LB/UB: Credible interval bounds (Level:", x$level, ")\n")
+      # cat("    Interval level:", x$level, "\n")
+    } else {
+      cat("  (Credible interval not stored)\n")
+    }
+
+  }
+
+  if (length(f_names) == 1){
+    cat("  (No uncertainty information available)\n")
+  }
+
+  invisible(x)
+
+}
+
+
+#' Summarize Predictions
+#' @name summary.bsimPred
+#' @description
+#' Provides a \code{summary} for `BayesSIM` prediction.
+#'
+#' @param object An object of class "bsimPred" which is the result of \code{predict}.
+#' @param x A summary output of class "bsimPred".
+#' @param digits The minimum number of significant digits to be printed.
+#' @param ... Further arguments passed.
+#'
+#' @details
+#' Performance of prediction with point predicted values.
+#'
+#' @return
+#' Metrics are including RMSE, MAE, Mean bias, and coverage. In terms of coverage, it is only available
+#' when the "bsimPred" includes interval, corresponding to \code{interval = "credible"} options for \code{predict} function.
+#' It indicates mean coverage rate of data points whether confidence intervals include true response values.
+#' In this case, all chains are combined for the computation.
+#'
+#' @method summary bsimPred
+#' @examples
+#' \donttest{
+#' simdata2 <- data.frame(DATA1$X, y = DATA1$y)
+#'
+#' fit_one <- BayesSIM(y ~ ., data = simdata2,
+#'                     niter = 5000, nburnin = 1000, nchain = 1)
+#'
+#' # Prediction with 95% credible interval at new data
+#' newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))
+#' pred <- predict(fit_one, newdata = newx, interval = "credible", level = 0.95)
+#' summary(pred)
+#' plot(pred)
+#'
+#' }
+#' @export
+summary.bsimPred <- function(object, ...){
+  y <- object$truey
+  yhat <- object$fitted[,1]
+  resid <- y - yhat
+
+  out <- list(
+    n = length(y),
+    metrics = c(
+      RMSE = sqrt(mean(resid^2, na.rm = TRUE)),
+      MAE  = mean(abs(resid), na.rm = TRUE),
+      Mean_bias = mean(resid, na.rm = TRUE))
+    )
+  if ("LB" %in% names(object$fitted) &
+      "UB" %in% names(object$fitted)){
+    lower <- object$fitted$LB
+    upper <- object$fitted$UB
+    cover <- mean(y >= lower & y <= upper, na.rm = TRUE)
+    out$metrics <- c(out$metrics, Coverage = cover)
+    # out$coverage <- cover
+    out$level <- object$level
+  }
+  class(out) <- "summary.bsimPred"
+
+  return(out)
+}
+
+#' @rdname summary.bsimPred
+#' @export
+print.summary.bsimPred <- function(x, digits = 3, ...){
+  cat("Summary of prediction")
+  cat("  n:", x$n, "\n")
+
+  if ("level" %in% names(x)){
+    cat("Interval level:", x$level, "\n")
+  }
+
+  cat("\nMetrics:\n")
+  m <- x$metrics
+  names(m)[3] <- "Mean bias"
+  m_df <- data.frame(
+    Metric = names(m),
+    Value  = unname(m),
+    row.names = NULL
+  )
+
+  m_df$Value <- round(m_df$Value, digits)
+  print(m_df, row.names = FALSE)
+
+  invisible(x)
+}
+
+#' Extract the Result Data.frame
+#' @description
+#' Extracts fitted result that contains posterior mean/median prediction of response variable, and
+#' standard error, credible interval of each data point in data.frame.
+#' @param x An object of class "bsimPred" which is the result of \code{predict.bsim}.
+#' @param ... Additional arguments passed to other methods.
+#' @return data.frame of prediction information.
+#' @seealso
+#' \code{\link{predict.bsim}}
+#' @export
+as.data.frame.bsimPred <- function(x, ...){
+  invisible(as.data.frame(x$fitted))
 }
 
 # predict structure
@@ -1665,7 +1825,7 @@ getVarMonitor <- function(object, type = c("name", "list")){
   } else if (type == "list"){
     return(tempList$out)
   } else{
-    stop("Argument `type` is wrong.")
+    stop("'type' argument is wrong.")
   }
 
 
@@ -1736,7 +1896,7 @@ getModelDef <- function(object){
 #' # Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1792,7 +1952,7 @@ getInit <- function(object){
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1912,8 +2072,8 @@ compileModelAndMCMC <- function(object) {
 #' @param object The result of `compileModelAndMCMC` function.
 #'
 #' @return
-#' `get_model` returns compiled Nimble model object.
-#' `get_sampler` returns compiled Nimble sampler object, directly using in `runMCMC` function.
+#' `getModel` returns compiled Nimble model object.
+#' `getSampler` returns compiled Nimble sampler object, directly using in `runMCMC` function.
 #'
 #' @seealso
 #' \code{\link[nimble]{nimbleModel}},
@@ -1934,7 +2094,7 @@ compileModelAndMCMC <- function(object) {
 #' # 2. Split version
 #' models <- BayesSIM_setup(y ~ ., data = simdata2)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -1946,12 +2106,12 @@ compileModelAndMCMC <- function(object) {
 #' }
 #' @name getFunction
 #' @export
-get_model <- function(object){
+getModel <- function(object){
   return(object$model)
 }
 
 #' @rdname getFunction
 #' @export
-get_sampler <- function(object){
+getSampler <- function(object){
   return(object$sampler)
 }

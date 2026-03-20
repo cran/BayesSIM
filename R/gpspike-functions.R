@@ -387,6 +387,7 @@ pred_gpSpike <- nimbleFunction(
         cholpredcov <- chol(Sigcov)
         testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
                                       prec_param  = FALSE))
+
       } else{ # response
         predcov <- Sigcov * currSigma + diag(rep(currSigma, new_ncol))
         cholpredcov <- chol(predcov)

@@ -388,7 +388,7 @@ initFunction_bS <- function(nu, index, k, beta, sigma2, knots,
   } else if (is.null(nu) & !is.null(index)){
     init_nu <- as.numeric(index != 0)
   } else{
-    init_nu <- init$nu
+    init_nu <- nu
   }
 
   # index
@@ -526,18 +526,26 @@ pred_bsplineSphere <- nimbleFunction(
       if (prediction == 1){ # latent
         testPred[i,] <- linkPred[ ,1]
       } else if (prediction == 2){ # response
-        predsigma <- chol(diag(rep(sigma2_samples[i], new_ncol)))
-        pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
+        # predsigma <- chol(diag(rep(sqrt(sigma2_samples[i]), new_ncol)))
+        # pred <- t(rmnorm_chol(1, mean = linkPred[,1], cholesky = predsigma, prec_param  = FALSE))
+
+        std_dev <- sqrt(sigma2_samples[i])
+        pred <- nimMatrix(0, ncol = new_ncol, nrow = 1)
+        for(j in 1:new_ncol) {
+          pred[1, j] <- linkPred[j, 1] + rnorm(1, 0, std_dev)
+        }
         idxmin <- (sampleZ[,1] < (mina[i]))
         idxmax <- (sampleZ[,1] > (maxb[i]))
 
         if (sum(idxmin) != 0){
+          cat("pass min \n")
           minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
           predmin <- min(pred[1, minVal_idx])
           pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
         }
 
         if (sum(idxmax) != 0){
+          cat("pass max \n")
           maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
           predmax <- max(pred[1, maxVal_idx])
           pred[1, idxmax] <- nimRep(predmax, sum(idxmax))

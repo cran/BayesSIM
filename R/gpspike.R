@@ -36,7 +36,7 @@
 #' \strong{Prior hyper-parameters}
 #' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
 #' \enumerate{
-#' \item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+#' \item Index vector: \code{index_r1, index_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
 #'     For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
 #'     \item Link function: Inverse gamma prior is assigned for hyper-parameters \eqn{\lambda^{-1}}
 #'     `link_inv_lambda_shape` is shape parameter and `link_inv_lambda_rate` is rate parameter of inverse gamma distribution.
@@ -83,7 +83,7 @@
 #' # Split version
 #' models <- gpSpike_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
@@ -224,11 +224,12 @@ gpSpike.default <- function(formula, data,
 
 
   # standardized X
-  meanX <- apply(X, 2, mean); sdX <- apply(X, 2, sd)
-  scaleX <- matrix(0, ncol = p, nrow = N)
-  for (i in 1:p){
-    scaleX[,i] <- (X[,i] - meanX[i])/sdX[i]
-  }
+  # meanX <- apply(X, 2, mean); sdX <- apply(X, 2, sd)
+  # scaleX <- matrix(0, ncol = p, nrow = N)
+  # for (i in 1:p){
+  #   scaleX[,i] <- (X[,i] - meanX[i])/sdX[i]
+  # }
+  scaleX <- X
 
   ## zero mean
   # z <- 1
@@ -296,17 +297,33 @@ gpSpike.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
@@ -335,7 +352,7 @@ gpSpike.default <- function(formula, data,
 
     # Linear predictor
     for (i in 1:N){
-      Xlin[i] <- sum(X[i,1:p] * index[1:p])
+      Xlin[i] <- sum(X[i,1:p] * indexstar[1:p])
     }
 
     # likelihood
@@ -349,7 +366,7 @@ gpSpike.default <- function(formula, data,
   })
 
   # Build model
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
                         data = list(X = scaleX, Y = Y),
                         constants = list(p = p, N = N,
@@ -362,9 +379,9 @@ gpSpike.default <- function(formula, data,
 
 
   # Assign samplers
-  message("Assign samplers")
+  message("== Assign samplers ==")
   monitorsList <- c("nu", "index", "sigma2", "Xlin", "invlambda", "pi",
-                    "index_raw")
+                    "indexstar")
 
   suppressMessages(mcmcConf <- configureMCMC(simpleModel,
                                              monitors = monitorsList,
@@ -403,16 +420,16 @@ gpSpike.default <- function(formula, data,
   } else{
     # Compile
     start2 <- Sys.time()
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
                                             resetFunctions = TRUE))
     end2 <- Sys.time()
 
     # Sampling
-    message("Run MCMC")
-    if (setSeed == FALSE){
+    message("== Run MCMC ==")
+    if (is.logical(setSeed)) {
       seedNum <- setSeed
     }
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
@@ -478,6 +495,31 @@ gpSpike.default <- function(formula, data,
                 input = inputOptions,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "gpSpike")
+
+    # sampling the fitted values--
+
+    samples <- sampleBind(out$samples, nchain)
+    nsamp <- nrow(samples)
+    namesIndex <- paste0("indexstar[", 1:p, "]")
+    namesXlin <- paste0("Xlin[", 1:N, "]")
+
+    indexstarSample <- samples[, namesIndex]
+    XlinSample <- samples[, namesXlin]
+    sigma2_samples <- samples[, "sigma2"]
+    invlambdaSample <- samples[,"invlambda"]
+
+    message("== Compiling functions for fitted values ==")
+    suppressMessages(
+      cpred_gpSpike <- compileNimble(pred_gpSpike)
+    )
+
+    testPred <- cpred_gpSpike(X, nsamp, Y, indexstarSample,
+                              XlinSample, sigma2_samples, invlambdaSample,
+                              prediction = 1)
+
+    out$fitted.values <- apply(testPred, 2, mean)
+    out$residuals <- out$fitted.values - as.vector(Y)
+    out$gof <- mean(out$residuals^2)
 
     class(out) = "bsim"
 

@@ -11,6 +11,7 @@ nuSampler_bspline_sphere <- nimble::nimbleFunction(
     Rpostll <- postll_bspline_sphere(model)
   },
   run = function(){
+    # nimPrint("nu")
     k <- 0; olda <- 0.0; oldb <- 0.0
     k <- model$k[1]
     currnu <- model$nu # vector[1:p]
@@ -116,10 +117,11 @@ indexSampler_bspline_sphere <-  nimble::nimbleFunction(
     calcNodes <- model$getDependencies(c(target, "knots"))
     p <- model$getConstants()$p
     Rpostll <- postll_bspline_sphere(model)
-    sig1_tune <- 0.1
+    sig1_tune <- 0.15
   },
   run = function(){
     # nimPrint("################# Sampling index #################")
+    # nimPrint("index")
     k <- 0; olda <- 0.0; oldb <- 0.0
     oldknots <- model$knots
     k <- model$k[1]
@@ -129,6 +131,7 @@ indexSampler_bspline_sphere <-  nimble::nimbleFunction(
     # nimCat("currTheta:", currTheta, "\n")
 
     beforell <- Rpostll$run() # compute
+
     # nimCat("beforell:", beforell, "\n")
 
     totalP <- which(currTheta != 0)
@@ -222,7 +225,7 @@ knotsSampler_bspline_sphere <-  nimble::nimbleFunction(
     r5 <- 1
     r6 <- 1
     maxknots <- model$getConstants()$maxknots[1]
-    sig2_tune <- 0.5
+    sig2_tune <- 0.4
   },
   run = function(){
     # nimPrint("################# Sampling knots #################")
@@ -262,8 +265,9 @@ knotsSampler_bspline_sphere <-  nimble::nimbleFunction(
 
       augEta <- 0.0
       augEta <- rbeta(1, r5, r6) * (maxIdx - minIdx) + minIdx
+      # nimCat("augEta:", augEta, "\n")
 
-      for (i in 1:(maxknots-1)){
+      for (i in 1:(maxknots)){
         if (i < idx){
           newknots[i] <- currknots[i]
         } else if (i == idx){
@@ -297,7 +301,7 @@ knotsSampler_bspline_sphere <-  nimble::nimbleFunction(
 
       # nimCat("minIdx:", minIdx, ", maxIdx:", maxIdx, "\n")
 
-      for (i in 1:maxknots){
+      for (i in 1:(maxknots-1)){ ## (maxknots)
         if (i < idx){
           newknots[i] <- currknots[i]
         } else if (i >= idx & i < maxknots){
@@ -390,6 +394,7 @@ betaSampler_bspline_sphere <- nimble::nimbleFunction(
       maxBasis <- model$getConstants()$maxBasis
     },
     run = function(){
+      # nimPrint("beta")
       numBasis <- 0; sigma2 <- 0.0; alpha <- 0.0
       numBasis <- model$numBasis[1]
       xmat <- model$Xmat
@@ -402,7 +407,8 @@ betaSampler_bspline_sphere <- nimble::nimbleFunction(
       meanBeta <- Sigma %*% t(realxmat) %*% y
       covBeta <- sigma2 * Sigma
       cholBeta <- chol(covBeta)
-      newBeta <- rmnorm_chol(1, mean = meanBeta[,1], cholesky  = cholBeta)
+      newBeta <- rmnorm_chol(1, mean = meanBeta[,1], cholesky  = cholBeta,
+                             prec_param = FALSE)
       betaMat <- nimMatrix(0, nrow = maxBasis, ncol = 1)
       for (i in 1:numBasis){
         betaMat[i, 1] <- newBeta[i]
@@ -429,6 +435,7 @@ sigma2Sampler_bspline_sphere <-  nimble::nimbleFunction(
       Sigma0 <- model$getConstants()$Sigma0
     },
     run = function(){
+      # nimPrint("sigma2")
       numBasis <- model$numBasis
       xmat <- model$Xmat
       alpha <- N/2

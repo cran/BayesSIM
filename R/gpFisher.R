@@ -76,7 +76,7 @@
 #' # Split version
 #' models <- gpFisher_setup(y ~ ., data = simdata, nchain = 1)
 #' Ccompile <- compileModelAndMCMC(models)
-#' nimSampler <- get_sampler(Ccompile)
+#' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
 #' mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
 #'                    nchains = 1, setSeed = TRUE, inits = initList,
@@ -327,17 +327,35 @@ gpFisher.default <- function(formula, data,
 
   # seed
   seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) & !is.numeric(setSeed)){
-    stop("'setSeed' argument should be logical or numeric vector.")
+  seedNum <- rep(FALSE, nchain)
+
+  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+    stop("'setSeed' must be logical or numeric.")
   }
-  if (is.logical(setSeed) & (setSeed == TRUE)){
-    seedNum <- seq(1, nchain, 1)
+
+  if (is.logical(setSeed)) {
+
+    if (length(setSeed) != 1) {
+      stop("If 'setSeed' is logical, it must be length 1.")
+    }
+
+    if (setSeed) {
+      seedNum <- seq_len(nchain)
+    } else {
+      seedNum <- rep(FALSE, nchain)
+    }
   }
-  if (is.numeric(setSeed)){
-    if (length(setSeed) == nchain){
+
+  if (is.numeric(setSeed)) {
+
+    if (length(setSeed) == 1) {
+      seedNum <- rep(setSeed, nchain)
+
+    } else if (length(setSeed) == nchain) {
       seedNum <- setSeed
-    } else if(length(setSeed) !=  nchain){
-      stop("The length of 'setSeed' should be equal to the number of chain.")
+
+    } else {
+      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
     }
   }
 
@@ -350,7 +368,7 @@ gpFisher.default <- function(formula, data,
                                                                         setSeed = seedNum[j]))
   firstInit <- inits_list[[1]]
 
-  message("Build Model")
+  message("== Build model ==")
   suppressMessages(simpleModel <- nimbleModel(modelCode,
                              data = list(X = X, Y = as.vector(Y)),
                              constants = list(theta_prior = index_direction,
@@ -379,7 +397,7 @@ gpFisher.default <- function(formula, data,
   #
   # mcmcConf$setSamplerExecutionOrder(c(2, 1, 4, 3, 5))
 
-  message("Build MCMC")
+  message("== Assign samplers ==")
   mcmc1 <- buildMCMC(mcmcConf)
 
 
@@ -388,15 +406,18 @@ gpFisher.default <- function(formula, data,
 
   } else{
     start2 <- Sys.time()
-    message("Compile Model")
+    message("== Compile model ==")
     suppressMessages(CModel <- compileNimble(simpleModel,
                                              resetFunctions = TRUE))
 
-    message("Compile MCMC")
+    message("== Compile samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1))
     end2 <- Sys.time()
 
-    message("Run MCMC")
+    message("== Run MCMC ==")
+    if (is.logical(setSeed)) {
+      seedNum <- setSeed
+    }
     mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
                         thin = thin,
                         nchains = nchain, setSeed = seedNum, inits = inits_list,
