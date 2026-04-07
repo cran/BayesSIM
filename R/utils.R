@@ -445,7 +445,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         labs(x = "Index value", y = "Predicted",
              title = paste0("Fitted curve"),
              subtitle = "Points: observed, Line: posterior mean") +
-        theme_minimal(base_size = 12) +
+        theme_minimal() +
         theme(
           panel.grid.minor = element_blank(),
           plot.title = element_text(hjust = 0.5, face = "bold"),
@@ -465,7 +465,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         labs(x = "Index value", y = "Predicted",
              title = paste0("Fitted curve with ", level, "% interval"),
              subtitle = "Points: predicted, Line: posterior mean") +
-        theme_minimal(base_size = 12) +
+        theme_minimal() +
         theme(
           panel.grid.minor = element_blank(),
           plot.title = element_text(hjust = 0.5, face = "bold"),
@@ -495,7 +495,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
       A1 <- ggplot(results, aes(x = truey, y = pred)) +
         geom_point(color = "black", alpha = 0.6) +
         geom_abline(slope = 1, intercept = 0, color = "firebrick", linewidth = 0.8) +
-        theme_minimal(base_size = 14) +
+        theme_minimal() +
         labs(
           title = "Fitted Plot",
           x = "True",
@@ -519,7 +519,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         labs(x = "Index value", y = "Response",
              title = paste0("Fitted curve"),
              subtitle = "Points: observed, Line: posterior mean") +
-        theme_minimal(base_size = 12) +
+        theme_minimal() +
         theme(
           panel.grid.minor = element_blank(),
           plot.title = element_text(hjust = 0.5, face = "bold"),
@@ -539,7 +539,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         labs(x = "Index value", y = "Response",
              title = paste0("Fitted curve with ", level, "% interval"),
              subtitle = "Points: observed, Line: posterior mean") +
-        theme_minimal(base_size = 12) +
+        theme_minimal() +
         theme(
           panel.grid.minor = element_blank(),
           plot.title = element_text(hjust = 0.5, face = "bold"),

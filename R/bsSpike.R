@@ -400,7 +400,7 @@ bsSpike.default <- function(formula, data,
   firstInit <- inits_list[[1]]
 
   # Build model
-  message("== Build model ==")
+  message("== Building model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodel,
                              data = list(X = X, Y = Y),
                              constants = list(p = p, N = N,
@@ -411,7 +411,7 @@ bsSpike.default <- function(formula, data,
                              inits = firstInit))
 
   # Assign samplers
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   monitorsList <- c("nu", "index", "sigma2", "linkFunction", "Xlin", "beta", "index_raw", "pi")
   suppressMessages(mcmcConf <- configureMCMC(simpleModel,
                                              monitors = monitorsList,
@@ -436,15 +436,15 @@ bsSpike.default <- function(formula, data,
   } else{
     start2 <- Sys.time()
     # Compile
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
                            resetFunctions = TRUE))
     end2 <- Sys.time()
 
     # Sampling
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     mcmc.out <- NULL
     if (is.logical(setSeed)) {
       seedNum <- setSeed

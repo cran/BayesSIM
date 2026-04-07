@@ -255,26 +255,30 @@ coef.bsim <- function(object, method = c("mean", "median"), se = FALSE, ...){
     method <- NULL
   }
 
+  dataX <- object$input$origdata$x
+  p <- ncol(dataX)
+  namesIndex <- paste0("index[", 1:p, "]")
+  indexName <- colnames(dataX)
+
   coefVector <- NULL
 
   if (is.null(method) || method == "mean"){
     coefVector <- object$coefficients
 
   } else if (method == "median"){
-    dataX <- object$input$origdata$x
-    p <- ncol(dataX)
-    namesIndex <- paste0("index[", 1:p, "]")
-    indexName <- colnames(dataX)
     nchain <- object$input$samplingOptions$nchain
     ALLsamp <- sampleBind(object$samples, nchain)
 
     coefficients_median <- apply(ALLsamp[ ,namesIndex], 2, median)
-    attr(coefficients_median, "names") <- indexName
+    # names(coefficients_median) <- indexName
     coefVector <- coefficients_median
 
   } else{
     stop("'method' argument could be either mean or median.")
   }
+
+  # attr(coefVector, "names") <- indexName
+  names(coefVector) <- indexName
 
   if (se){
     if (is.null(method) || method == "mean"){
@@ -1416,7 +1420,7 @@ predict.bsim <- function(object, newdata = NULL,
       maxb <- samples[ ,"b_alpha"]
 
 
-      message("Compiling functions..")
+      message("== Compiling functions ==")
       suppressMessages(
         cpred_bsplineSphere <- compileNimble(pred_bsplineSphere)
       )
@@ -1424,7 +1428,7 @@ predict.bsim <- function(object, newdata = NULL,
       if (type == "latent"){
 
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_bsplineSphere(newdataMat, indexSample,
                                         knotsSample, XlinSample,
                                         betaSample, sigma2_samples, k,
@@ -1436,7 +1440,7 @@ predict.bsim <- function(object, newdata = NULL,
 
       } else if (type == "response"){
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_bsplineSphere(newdataMat, indexSample,
                                         knotsSample, XlinSample,
                                         betaSample, sigma2_samples, k,
@@ -1459,14 +1463,14 @@ predict.bsim <- function(object, newdata = NULL,
       end1 <- Sys.time()
 
 
-      message("Compiling functions..")
+      message("== Compiling functions ==")
       suppressMessages(
         cpred_bsplineFisher <- compileNimble(pred_bsplineFisher)
       )
 
       if (type == "latent"){
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_bsplineFisher(newdataMat, indexSample,
                                         knotsSample, XlinSample,
                                         betaSample, sigma2_samples,
@@ -1475,7 +1479,7 @@ predict.bsim <- function(object, newdata = NULL,
         end2 <- Sys.time()
       } else if (type == "response"){
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_bsplineFisher(newdataMat, indexSample,
                                         knotsSample, XlinSample,
                                         betaSample, sigma2_samples,
@@ -1492,14 +1496,14 @@ predict.bsim <- function(object, newdata = NULL,
       ampSample <- samples[ ,"amp"]
       # newdataMat <- as.matrix(newdataX)
 
-      message("Compiling functions..")
+      message("== Compiling functions ==")
       suppressMessages(
         cpred_gpSphere <- compileNimble(pred_gpSphere)
       )
 
       if (type == "latent"){ # latent
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpSphere(newdataMat, nsamp, trainY, indexSample,
                                    XlinSample, sigma2_samples,
                                    lengthSample, ampSample,
@@ -1507,7 +1511,7 @@ predict.bsim <- function(object, newdata = NULL,
         end2 <- Sys.time()
       } else{# response
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpSphere(newdataMat, nsamp, trainY, indexSample,
                                    XlinSample, sigma2_samples,
                                    lengthSample, ampSample,
@@ -1520,21 +1524,21 @@ predict.bsim <- function(object, newdata = NULL,
       kappaSample <- samples[ , "kappa"]
       newdataMat <- as.matrix(newdataX)
 
-      message("Compiling functions..")
+      message("== Compiling functions ==")
       suppressMessages(
         cpred_gpPolar <- compileNimble(pred_gpPolar)
       )
 
       if (type == "latent"){
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpPolar(newdataMat, nsamp, trainY, indexSample,
                                   XlinSample, sigma2_samples,
                                   kappaSample, prediction = 1)
         end2 <- Sys.time()
       } else{ # response
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpPolar(newdataMat, nsamp, trainY, indexSample,
                                   XlinSample, sigma2_samples,
                                   kappaSample, prediction = 2)
@@ -1549,7 +1553,7 @@ predict.bsim <- function(object, newdata = NULL,
       newdataMat <- as.matrix(newdataX)
       # newdataMat <- as.matrix(scale(newdataX))
 
-      message("Compiling functions..")
+      message("== Compiling functions ==")
       suppressMessages(
         cpred_gpSpike <- compileNimble(pred_gpSpike)
       )
@@ -1557,14 +1561,14 @@ predict.bsim <- function(object, newdata = NULL,
       if (type == "latent"){
         # latent
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpSpike(newdataMat, nsamp, trainY, indexstarSample,
                                   XlinSample, sigma2_samples, invlambdaSample,
                                   prediction = 1)
         end2 <- Sys.time()
       } else{ # response
         start2 <- Sys.time()
-        message("Computing predicted value..")
+        message("== Computing predicted values ==")
         testPred <- cpred_gpSpike(newdataMat, nsamp, trainY, indexstarSample,
                                   XlinSample, sigma2_samples, invlambdaSample,
                                   prediction = 2)
@@ -1622,7 +1626,7 @@ predict.bsim <- function(object, newdata = NULL,
 #' @export
 print.bsimPred <- function(x, ...){
   cat("Prediction object of BayesSIM\n")
-  n <- length(x$truey)
+  n <- nrow(x$fitted)
   cat("  n:", n, "\n")
 
   cat("\nPrediction summary:\n")
@@ -1655,7 +1659,7 @@ print.bsimPred <- function(x, ...){
       cat("  - LB/UB: Credible interval bounds (Level:", x$level, ")\n")
       # cat("    Interval level:", x$level, "\n")
     } else {
-      cat("  (Credible interval not stored)\n")
+      cat("  (Credible intervals are not stored)\n")
     }
 
   }
@@ -1705,52 +1709,86 @@ print.bsimPred <- function(x, ...){
 #' }
 #' @export
 summary.bsimPred <- function(object, ...){
-  y <- object$truey
-  yhat <- object$fitted[,1]
-  resid <- y - yhat
+
+  y_pred <- object$fitted[,1]
+
+  # 1. summary statistics of predictions
+  dist_stats <- list(
+    n = length(y_pred),
+    mean = mean(y_pred, na.rm = TRUE),
+    sd = sd(y_pred, na.rm = TRUE),
+    range = range(y_pred, na.rm = TRUE),
+    quartiles = quantile(y_pred, probs = c(0.25, 0.5, 0.75), na.rm = TRUE)
+  )
+
+  # 2. Metrics
+  metrics <- NULL
+  y_true <- object$truey
+  if (!is.null(y_true)) {
+    rmse <- sqrt(mean((y_true - y_pred)^2, na.rm = TRUE))
+    mae <- mean(abs(y_true - y_pred), na.rm = TRUE)
+    bias <- mean(y_pred - y_true, na.rm = TRUE)
+    metrics <- list(RMSE = rmse, MAE = mae, Mean_bias = bias)
+
+    if ("LB" %in% names(object$fitted) &
+        "UB" %in% names(object$fitted)){
+      lower <- object$fitted$LB
+      upper <- object$fitted$UB
+      cover <- mean(y_true >= lower & y_true <= upper, na.rm = TRUE)
+      metrics$Coverage <- cover
+      metrics$level <- object$level
+    }
+  } else{
+    metrics <- list(RMSE = NULL, MAE = NULL, Mean_bias = NULL)
+    if ("LB" %in% names(object$fitted) &
+        "UB" %in% names(object$fitted)){
+      metrics$Coverage <- NULL
+    }
+    metrics$level <- object$level
+  }
 
   out <- list(
-    n = length(y),
-    metrics = c(
-      RMSE = sqrt(mean(resid^2, na.rm = TRUE)),
-      MAE  = mean(abs(resid), na.rm = TRUE),
-      Mean_bias = mean(resid, na.rm = TRUE))
-    )
-  if ("LB" %in% names(object$fitted) &
-      "UB" %in% names(object$fitted)){
-    lower <- object$fitted$LB
-    upper <- object$fitted$UB
-    cover <- mean(y >= lower & y <= upper, na.rm = TRUE)
-    out$metrics <- c(out$metrics, Coverage = cover)
-    # out$coverage <- cover
-    out$level <- object$level
-  }
+    dist_stats = dist_stats,
+    metrics = metrics,
+    has_truth = !is.null(y_true)
+  )
   class(out) <- "summary.bsimPred"
-
   return(out)
+
 }
 
 #' @rdname summary.bsimPred
 #' @export
 print.summary.bsimPred <- function(x, digits = 3, ...){
-  cat("Summary of prediction")
-  cat("  n:", x$n, "\n")
 
-  if ("level" %in% names(x)){
-    cat("Interval level:", x$level, "\n")
+  cat("\n==========================================\n")
+  cat("       Model Prediction Summary           \n")
+  cat("==========================================\n")
+
+  cat(paste0("[Observations] : ", x$dist_stats$n, "\n"))
+  cat("[Distribution] :\n")
+  cat(paste0("  - Mean (SD)  : ", round(x$dist_stats$mean, digits),
+             " (", round(x$dist_stats$sd, digits), ")\n"))
+  cat(paste0("  - Range      : ", round(x$dist_stats$range[1], digits),
+             " to ", round(x$dist_stats$range[2], digits), "\n"))
+  cat(paste0("  - Percentiles: 25% = ", round(x$dist_stats$quartiles[1], digits),
+             ", 50% = ", round(x$dist_stats$quartiles[2], digits),
+             ", 75% = ", round(x$dist_stats$quartiles[3], digits), "\n"))
+
+  cat("\n------------------------------------------\n")
+
+  if (x$has_truth) {
+    cat("[Performance Metrics] :\n")
+    cat(paste0("  - RMSE       : ", round(x$metrics$RMSE, digits), "\n"))
+    cat(paste0("  - MAE        : ", round(x$metrics$MAE, digits), "\n"))
+    cat(paste0("  - Bias       : ", round(x$metrics$Mean_bias, digits), "\n"))
+  } else {
+    cat("[Note] :\n")
+    cat("  True target values (y) were not provided.\n")
+    cat("  Performance metrics are unavailable.\n")
   }
 
-  cat("\nMetrics:\n")
-  m <- x$metrics
-  names(m)[3] <- "Mean bias"
-  m_df <- data.frame(
-    Metric = names(m),
-    Value  = unname(m),
-    row.names = NULL
-  )
-
-  m_df$Value <- round(m_df$Value, digits)
-  print(m_df, row.names = FALSE)
+  cat("==========================================\n\n")
 
   invisible(x)
 }
@@ -2056,9 +2094,9 @@ compileModelAndMCMC <- function(object) {
 
   )
 
-  message("Compile model")
+  message("== Compiling model ==")
   suppressMessages(Cmodel <- nimble::compileNimble(model))
-  message("Compile samplers")
+  message("== Compiling samplers ==")
   suppressMessages(Cmcmc  <- nimble::compileNimble(mcmc, project = model, resetFunctions = TRUE))
   return(list(model = Cmodel, sampler = Cmcmc))
 }

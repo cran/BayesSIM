@@ -466,7 +466,7 @@ gpSphere.default <- function(formula, data,
     current <- c(tempIndex, log(firstInit$lengthscale), log(firstInit$amp),
                  firstInit$sigma2)
 
-    message("Find MAP..")
+    message("Finding MAP..")
 
     tryCatch(
       {
@@ -515,7 +515,7 @@ gpSphere.default <- function(formula, data,
     }
   }
 
-  message("== Build model ==")
+  message("== Building model ==")
 
   if (method %in% c("FB", "EG")){
     suppressMessages(
@@ -577,7 +577,7 @@ gpSphere.default <- function(formula, data,
     stop("Wrong sampling method!")
   }
 
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   mcmc1 <- buildMCMC(mcmcConf)
 
 
@@ -586,15 +586,15 @@ gpSphere.default <- function(formula, data,
 
   } else{
     start2 <- Sys.time()
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(
       CModel <- compileNimble(simpleModel, resetFunctions = TRUE)
     )
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1))
     end2 <- Sys.time()
 
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     mcmc.out <- NULL
 
     if (is.logical(setSeed)) {

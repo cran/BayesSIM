@@ -141,12 +141,12 @@ BayesSIM <- function(formula, data,
         tot.name <- c(response.name ,data.name)
       }
       if(!int.flag){
-        stop("BayesSIM cannot treat interaction terms")
+        stop("BayesSIM cannot treat interaction terms.")
       }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
                length(tot.name)){
         stop(paste(paste(tot.name[duplicated(c(colnames(data),
                                                tot.name))[-c(1:ncol(data))]],collapse=","),
-                   " is/are not in your data"))
+                   " is/are not in your data."))
       }else{
         origY <- data[ ,response.name]
         if(data.name[1]=="."){

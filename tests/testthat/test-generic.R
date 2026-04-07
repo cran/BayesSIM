@@ -167,11 +167,13 @@ test_that("print.bsim prints message when samples are NULL", {
 })
 
 test_that("coef.bsim returns mean coefficients and SE when requested", {
+  xData <- matrix(rnorm(4), ncol = 2)
+  colnames(xData) <- c("X1", "X2")
   obj <- list(
-    coefficients = c(index1 = 0.5, index2 = -0.5),
+    coefficients = c(X1 = 0.5, X2 = -0.5),
     ses_coef     = c(0.1, 0.2),
     input = list(
-      origdata = list(x = matrix(rnorm(4), ncol = 2)),
+      origdata = list(x = xData),
       samplingOptions = list(nchain = 1)
     ),
     samples = NULL

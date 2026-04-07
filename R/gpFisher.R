@@ -368,7 +368,7 @@ gpFisher.default <- function(formula, data,
                                                                         setSeed = seedNum[j]))
   firstInit <- inits_list[[1]]
 
-  message("== Build model ==")
+  message("== Building model ==")
   suppressMessages(simpleModel <- nimbleModel(modelCode,
                              data = list(X = X, Y = as.vector(Y)),
                              constants = list(theta_prior = index_direction,
@@ -397,7 +397,7 @@ gpFisher.default <- function(formula, data,
   #
   # mcmcConf$setSamplerExecutionOrder(c(2, 1, 4, 3, 5))
 
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   mcmc1 <- buildMCMC(mcmcConf)
 
 
@@ -406,15 +406,15 @@ gpFisher.default <- function(formula, data,
 
   } else{
     start2 <- Sys.time()
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(CModel <- compileNimble(simpleModel,
                                              resetFunctions = TRUE))
 
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1))
     end2 <- Sys.time()
 
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     if (is.logical(setSeed)) {
       seedNum <- setSeed
     }

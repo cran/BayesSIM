@@ -2,7 +2,7 @@ Type: Package
 Package: BayesSIM
 Title: Integrated Interface of Bayesian Single Index Models using
         'nimble'
-Version: 1.0.2
+Version: 1.0.3
 Authors@R: c(
     person("Seowoo", "Jung", , "jsw1347@ewha.ac.kr", role = c("aut", "cre")),
     person("Eun-kyung", "Lee", , "lee.eunk@ewha.ac.kr", role = "aut")
@@ -30,7 +30,7 @@ Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: no
-Packaged: 2026-03-20 06:01:50 UTC; Seowoo
+Packaged: 2026-04-03 07:47:13 UTC; user
 RoxygenNote: 7.3.3
 Repository: CRAN
-Date/Publication: 2026-03-20 08:40:02 UTC
+Date/Publication: 2026-04-07 10:30:02 UTC

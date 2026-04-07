@@ -250,7 +250,7 @@ gpPolarHigh.default <- function(formula, data,
 
 
 
-  message("== Build model ==")
+  message("== Building model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodel,
                              data = list(x = X,
                                          y = as.vector(Y)),
@@ -261,7 +261,7 @@ gpPolarHigh.default <- function(formula, data,
                              inits = firstInit))
 
   # Assign samplers
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
   monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
   suppressMessages(mcmcConf <- configureMCMC(simpleModel,
@@ -285,15 +285,15 @@ gpPolarHigh.default <- function(formula, data,
   } else{
     start2 <- Sys.time()
     # Compile
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
     end2 <- Sys.time()
     # Sampling
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     if (is.logical(setSeed)) {
       seedNum <- setSeed
     }

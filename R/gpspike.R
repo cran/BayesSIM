@@ -366,7 +366,7 @@ gpSpike.default <- function(formula, data,
   })
 
   # Build model
-  message("== Build model ==")
+  message("== Building model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
                         data = list(X = scaleX, Y = Y),
                         constants = list(p = p, N = N,
@@ -379,7 +379,7 @@ gpSpike.default <- function(formula, data,
 
 
   # Assign samplers
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   monitorsList <- c("nu", "index", "sigma2", "Xlin", "invlambda", "pi",
                     "indexstar")
 
@@ -420,15 +420,15 @@ gpSpike.default <- function(formula, data,
   } else{
     # Compile
     start2 <- Sys.time()
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
                                             resetFunctions = TRUE))
     end2 <- Sys.time()
 
     # Sampling
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     if (is.logical(setSeed)) {
       seedNum <- setSeed
     }

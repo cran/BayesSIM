@@ -445,7 +445,7 @@ bsSphere.default <- function(formula, data,
 
 
   # Build model
-  message("== Build model ==")
+  message("== Building model ==")
   suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
                                               data = list(X = X, Y = Y),
                                               constants = list(p = p, N = N, r1 = r1, r2 = r2,
@@ -456,7 +456,7 @@ bsSphere.default <- function(formula, data,
                                               inits = firstInit))
 
   # Assign samplers
-  message("== Assign samplers ==")
+  message("== Assigning samplers ==")
   # List that is needed for fitting the model
   monitorsList <- c("index", "nu", "sigma2", "linkFunction", "beta",
                     "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
@@ -498,9 +498,9 @@ bsSphere.default <- function(formula, data,
   } else{
     # Compile
     start2 <- Sys.time()
-    message("== Compile model ==")
+    message("== Compiling model ==")
     suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compile samplers ==")
+    message("== Compiling samplers ==")
     suppressMessages(Cmcmc <- compileNimble(mcmc1,
                                             project = simpleModel,
                                             resetFunctions = TRUE))
@@ -508,7 +508,7 @@ bsSphere.default <- function(formula, data,
 
     # Sampling
 
-    message("== Run MCMC ==")
+    message("== Running MCMC ==")
     mcmc.out <- NULL
     if (is.logical(setSeed)) {
       seedNum <- setSeed
