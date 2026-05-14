@@ -5,10 +5,10 @@
 #' @importFrom tidyr pivot_longer all_of
 #' @importFrom dplyr select
 #' @importFrom stats mad
+#' @importFrom utils str
 
 # Common functions and S3 class for the BayesSIM
 ## bsim: Total results for fitted model
-## bsimSetup: Model setup without sampling
 ## bsimPred: object for prediction -> used in fitted plots
 bsim <- function(coefficients, ses, residuals,
                  fitted.values, linear.predictors, gof,
@@ -56,14 +56,29 @@ bsim.predict <- function(fitted, truey, idxValue, level, type){
   )
 }
 
+
+#' Construct a Fitted Model Object from Model Setup and MCMC Output
+#'
+#' @param object A \code{bsimSetup} object.
+#' @param ... Additional arguments passed to other methods.
+#'
+#' @rdname as_bsim.bsimSetup
+#' @aliases as_bsim.bsimSetup
+#' @export
+as_bsim <- function(object, mcmc.out,...) {
+  UseMethod("as_bsim")
+}
+
+
 #' Construct a Fitted Model Object from Model Setup and MCMC Output
 #'
 #' Create a fitted \code{bsim} object by combining a `BayesSIM`
 #' setup object with MCMC samples returned by \code{runMCMC()}.
 #'
-#' @param setup A `BayesSIM` setup object, typically the output of a
+#' @param object A `BayesSIM` setup object, typically the output of a
 #'   \code{_setup} function.
 #' @param mcmc.out MCMC output corresponding to the result of a call to \code{runMCMC()}.
+#' @param ... Additional arguments passed to other methods.
 #'
 #' @return
 #' An object of class \code{"bsim"} containing posterior samples,
@@ -88,10 +103,10 @@ bsim.predict <- function(fitted, truey, idxValue, level, type){
 #' fit2 <- as_bsim(models, mcmc.out)
 #' summary(fit2)
 #' }
-#'
+#' @method as_bsim bsimSetup
 #' @export
-as_bsim <- function(setup, mcmc.out){
-  nchain <- setup$input$samplingOptions$nchain
+as_bsim.bsimSetup <- function(object, mcmc.out, ...){
+  nchain <- object$input$samplingOptions$nchain
   # samples <- sampleBind(mcmc.out, nchain)
   if ("samples" %in% names(mcmc.out)){
     temp <- mcmc.out[["samples"]]
@@ -100,12 +115,12 @@ as_bsim <- function(setup, mcmc.out){
   }
 
   # gpSphere - EB
-  if (setup$modelName == "gpSphere"){
-    if (setup$input$samplingOptions$method == "EB"){
-      map_index <- setup$defModel$getConstants()$index
-      map_amp <- setup$defModel$getConstants()$amp
-      map_lengthscale <- setup$defModel$getConstants()$lengthscale
-      map_sigma2 <- setup$defModel$getConstants()$sigma2
+  if (object$modelName == "gpSphere"){
+    if (object$input$samplingOptions$method == "EB"){
+      map_index <- object$defModel$getConstants()$index
+      map_amp <- object$defModel$getConstants()$amp
+      map_lengthscale <- object$defModel$getConstants()$lengthscale
+      map_sigma2 <- object$defModel$getConstants()$sigma2
       p <- length(map_index)
 
       sampMCMC <- as.matrix(temp)
@@ -123,8 +138,8 @@ as_bsim <- function(setup, mcmc.out){
   samples <- sampleBind(temp, nchain)
 
 
-  X <- setup$input$origdata$x
-  Y <- setup$input$origdata$y
+  X <- object$input$origdata$x
+  Y <- object$input$origdata$y
   modelESTLIST <- bsimFit_pointest(samples, X, Y)
   out <- list(
     coefficients = modelESTLIST$coefficients,
@@ -133,13 +148,13 @@ as_bsim <- function(setup, mcmc.out){
     fitted.values = modelESTLIST$fitted.values,
     linear.predictors = modelESTLIST$linear.predictors,
     gof = modelESTLIST$gof,
-    input = setup$input,
+    input = object$input,
     samples = temp,
-    defModel = setup$defModel, defSampler = setup$defSampler,
-    modelName = setup$modelName
+    defModel = object$defModel, defSampler = object$defSampler,
+    modelName = object$modelName
   )
 
-  class(out) = "bsim"
+  class(out) <- "bsim"
   return(out)
 
 }
@@ -148,7 +163,6 @@ as_bsim <- function(setup, mcmc.out){
 #' @method print bsim
 #' @export
 print.bsim <- function(x, digits = 3, ...){
-  # Model definition if possible
   # 1) Header
   cat("BayesSIM model\n")
 
@@ -157,26 +171,40 @@ print.bsim <- function(x, digits = 3, ...){
   cat("observations:", nrow(x$input$origdata$x), "\n")
   cat("predictors:  ", ncol(x$input$origdata$x), "\n")
   cat("------\n")
-  if(is.null(x$samples)){
-    cat("Try compiling the object and draw posterior samples from `runMCMC()`")
-  } else{
-    # estimated coefficient
-    cat("Single-index estimates: \n")
-    # cat(x$coefficients)
-    A <- data.frame(mean = x$coefficients,
-                    empirical.se = x$ses_coef)
 
-    rownames(A) <- names(x$coefficients)
-    colnames(A) <- c("Estimate (mean)", "SE")
+  # estimated coefficient
+  cat("Single-index estimates: \n")
+  # cat(x$coefficients)
+  A <- data.frame(mean = x$coefficients,
+                  empirical.se = x$ses_coef)
 
-    print(round(A, digits))
+  rownames(A) <- names(x$coefficients)
+  colnames(A) <- c("Estimate (mean)", "SE")
 
-    cat("\n")
+  print(round(A, digits))
 
-    # Goodness of fit: Residual sum of square
-    cat("Goodness of fit (Mean residual sum of square): ", round(x$gof, digits))
-    cat("\n")
-  }
+  cat("\n")
+
+  # Goodness of fit: Residual sum of square
+  cat("Goodness of fit (Mean residual sum of square): ", round(x$gof, digits))
+  cat("\n")
+
+}
+
+#' @rdname BayesSIM
+#' @method print bsimSetup
+#' @export
+print.bsimSetup <- function(x, digits = 3, ...){
+  # 1) Header
+  cat("BayesSIM model\n")
+
+  # 2) Model info
+  cat("formula:     ", x$input$formula[c(2, 1, 3)], "\n")
+  cat("observations:", nrow(x$input$origdata$x), "\n")
+  cat("predictors:  ", ncol(x$input$origdata$x), "\n")
+  cat("------\n")
+
+  cat("Try compiling the object with compileModelAndMCMC() and drawing posterior samples from runMCMC()")
 
 }
 
@@ -249,6 +277,8 @@ print.bsim <- function(x, digits = 3, ...){
 #' @method coef bsim
 #' @export
 coef.bsim <- function(object, method = c("mean", "median"), se = FALSE, ...){
+
+
   method <- match.arg(method)
 
   if (sum(method == c("mean", "median")) == 2){
@@ -295,8 +325,7 @@ coef.bsim <- function(object, method = c("mean", "median"), se = FALSE, ...){
 
 }
 
-
-#' @rdname gof
+#' @rdname GOF.bsim
 #' @export
 GOF <- function(object){
   UseMethod("GOF")
@@ -360,7 +389,7 @@ GOF <- function(object){
 #' fit_split <- as_bsim(models, mcmc.out)
 #'
 #' }
-#' @name gof
+#' @name GOF.bsim
 #' @export
 GOF.bsim <- function(object, ...){
   object$gof
@@ -428,7 +457,7 @@ GOF.bsim <- function(object, ...){
 #' fit_split <- as_bsim(models, mcmc.out)
 #'
 #' }
-#' @name genBasic
+#' @name residuals.bsim
 #' @method residuals bsim
 #' @export
 residuals.bsim <- function(object, method = c("mean", "median"), ...){
@@ -471,7 +500,7 @@ residuals.bsim <- function(object, method = c("mean", "median"), ...){
 #' Fitted values can be returned on the latent scale or on the linear
 #' predictor scale.
 #'
-#' @inheritParams genBasic
+#' @inheritParams residuals.bsim
 #' @param type Character string indicating the scale on which fitted values
 #'   are returned. Default is \code{"latent"}.
 #'   \itemize{
@@ -806,6 +835,85 @@ print.summary.bsim <- function(x, digits = 3, ...){
   print(tempTable, digits = digits)
 }
 
+#' Summarize `BayesSIM_setup`
+#' @name summary.bsimSetup
+#' @description
+#' Provides a \code{summary} for `BayesSIM_setup`.
+#'
+#' @param object A fitted object of \code{BayesSIM_setup}.
+#' @param x A summary output of \code{BayesSIM_setup}.
+#' @param digits The minimum number of significant digits to be printed.
+#' @param ... Further arguments passed.
+#'
+#' @details Summarize the model setup information of an object created by
+#'   a setup function (e.g., \code{\link{BayesSIM_setup}}),
+#'   including the model name, data dimensions, prior settings, and sampling options.
+#'
+#' @return
+#' An object of class \code{summary.bsimSetup}, which is a list containing:
+#'   \item{modelName}{The name of the fitted model.}
+#'   \item{n}{The number of observations.}
+#'   \item{p}{The number of predictors.}
+#'   \item{prior}{A list of prior settings used in the model.}
+#'   \item{samplingOptions}{A list of MCMC sampling options, including \code{niter}, \code{nburnin}, \code{thin}, and \code{nchain}.}
+#'   \item{model}{The compiled nimble model object.}
+#'
+#' @method summary bsimSetup
+#' @examples
+#' \donttest{
+#' simdata2 <- data.frame(DATA1$X, y = DATA1$y)
+#'
+#' models <- BayesSIM_setup(y ~ ., data = simdata2)
+#' summary(models)
+#'
+#' Ccompile <- compileModelAndMCMC(models)
+#' nimSampler <- getSampler(Ccompile)
+#' initList <- getInit(models)
+#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#'                     nchains = 1, setSeed = TRUE, inits = initList,
+#'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
+#'
+#' # "fit_split" becomes the class of "bsim".
+#' fit_split <- as_bsim(models, mcmc.out)
+#'
+#' }
+#'
+#' @export
+summary.bsimSetup <- function(object, ...) {
+  out <- list(
+    modelName = object$modelName,
+    n = nrow(object$input$origdata$x),
+    p = ncol(object$input$origdata$x),
+    prior = object$input$prior,
+    samplingOptions = object$input$samplingOptions,
+    model = object$defModel
+  )
+  class(out) <- "summary.bsimSetup"
+  out
+}
+
+#' @rdname summary.bsimSetup
+#' @export
+print.summary.bsimSetup <- function(x, digits = 1, ...) {
+  cat("=== BayesSIM Setup Summary ===\n\n")
+  cat("Model:", x$modelName, "\n")
+  cat("Data: n =", x$n, ", p =", x$p, "\n\n")
+
+  cat("--- Prior ---\n")
+  str(x$prior, max.level = 2, give.attr = FALSE)
+  cat("\n")
+
+  cat("--- Sampling Options ---\n")
+  cat("  niter =", x$samplingOptions$niter, "\n")
+  cat("  nburnin =", x$samplingOptions$nburnin, "\n")
+  cat("  thin =", x$samplingOptions$thin, "\n")
+  cat("  nchain =", x$samplingOptions$nchain, "\n")
+
+  invisible(x)
+
+}
+
+
 #' Traceplot for `BayesSIM`
 #'
 #' @description
@@ -881,12 +989,12 @@ nimTraceplot <- function(x, ...){
       n <- nrow(x$samples[[i]])
       temp <- cbind(chain.num = rep(i, n), x$samples[[i]])
       samples <- rbind(samples, temp)
-      num.chain = samples[,1]
+      num.chain <- samples[,1]
     }
   } else{
     n <- nrow(x$samples)
     samples <- x$samples
-    num.chain = rep(1,n)
+    num.chain <- rep(1,n)
   }
   ##
   # index
@@ -1078,7 +1186,7 @@ nimTraceplot <- function(x, ...){
 #'
 #' }
 #' @method plot bsim
-#' @name plot
+#' @name plot.bsim
 #' @export
 plot.bsim <- function(x, method = c("mean", "median"),
                             interval = TRUE, alpha = 0.95, ...){
@@ -1098,20 +1206,66 @@ plot.bsim <- function(x, method = c("mean", "median"),
                     alpha = alpha)
   }
 
-  # summaryResult <- list(fitted = NULL, truey = NULL,
-  #                       idxValue = NULL, level = level)
-  # summaryResult$truey <- as.vector(x$input$origdata$y)
-  # summaryResult$idxValue <- fitted(x, type = "linpred", method = method)
-  # pred <- fitted(x, method = method)
-  #
-  # if (interval == TRUE){
-  #   fitted <- data.frame(pred = pred, )
-  # }
-
-  # object: fitting object
 
   plot_bsim_fitted(pred, interval)
 }
+
+#' Plot Method for `BayesSIM_setup`
+#'
+#' Produce diagnostic plots for a raw data.
+#'
+#' @param x A fitted object of \code{BayesSIM} or individual model.
+#' @param select A vector of index or name of variables in data.
+#' @param ... Additional arguments passed to underlying plotting functions.
+#'
+#'
+#' @details The function displays scatter plots of the response variable against
+#'   each predictor variable. Each panel includes a smoothed trend line
+#'   to help assess the marginal relationship before fitting the model.
+#'
+#' @return A \code{ggplot} object is returned invisibly, allowing further modification if needed.
+#'
+#' @seealso [summary.bsimSetup()]
+#'
+#' @examples
+#' \donttest{
+#' simdata2 <- data.frame(DATA1$X, y = DATA1$y)
+#'
+#' models <- BayesSIM_setup(y ~ ., data = simdata2)
+#'
+#' plot(models, select = c("X1", "X2"))
+#'
+#' }
+#' @method plot bsimSetup
+#' @name plot.bsimSetup
+#' @export
+plot.bsimSetup <- function(x, select = NULL, ...) {
+  value <- 0
+  X <- x$input$origdata$x
+  y <- x$input$origdata$y
+
+  if (is.null(select)) {
+    select <- seq_len(ncol(X))
+  }
+
+  X <- X[, select, drop = FALSE]
+
+  df <- data.frame(y = rep(y, ncol(X)),
+                   value = as.vector(X),
+                   variable = rep(colnames(X), each = length(y)))
+
+
+  p <- ggplot(df, aes(x = value, y = y)) +
+    geom_point(alpha = 0.5) +
+    geom_smooth() +
+    facet_wrap(~ variable, scales = "free_x") +
+    labs(x = "Predictor", y = "Response")
+
+  print(p)
+  invisible(p)
+
+}
+
 
 
 #' Prediction Method for `BayesSIM`
@@ -1238,7 +1392,7 @@ plot.bsim <- function(x, method = c("mean", "median"),
 #'
 #' }
 #' @method predict bsim
-#' @name predict
+#' @name predict.bsim
 #' @export
 predict.bsim <- function(object, newdata = NULL,
                          se.fit = FALSE,
@@ -1622,7 +1776,7 @@ predict.bsim <- function(object, newdata = NULL,
 
 }
 
-#' @rdname predict
+#' @rdname predict.bsim
 #' @export
 print.bsimPred <- function(x, ...){
   cat("Prediction object of BayesSIM\n")
@@ -1802,21 +1956,33 @@ print.summary.bsimPred <- function(x, digits = 3, ...){
 #' @return data.frame of prediction information.
 #' @seealso
 #' \code{\link{predict.bsim}}
+#' @examples
+#' \donttest{
+#' data("DATA1")
+#' simdata2 <- data.frame(DATA1$X, y = DATA1$y)
+#' fit_one  <- BayesSIM(y ~ ., data = simdata2,
+#'                     niter = 5000, nburnin = 1000, nchain = 1)
+#'
+#' pred <- predict(fit_one, se.fit = TRUE, interval = "credible",level = 0.8)
+#' results <- as.data.frame(pred)
+#' summary(results)
+#' }
+#'
 #' @export
 as.data.frame.bsimPred <- function(x, ...){
   invisible(as.data.frame(x$fitted))
 }
 
 # predict structure
-#' @rdname plot
+#' @rdname plot.bsim
 #' @export
 plot.bsimPred <- function(x, ...){ # predict object
 
   # object: predict object
   if (sum(c("LB", "UB") %in% colnames(x$fitted)) == 2){
-    interval = TRUE
+    interval <- TRUE
   } else{
-    interval = FALSE
+    interval <- FALSE
   }
 
   plot_bsim_fitted(x, interval)

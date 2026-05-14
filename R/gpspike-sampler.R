@@ -70,7 +70,7 @@ SamplingThetaV_gp_spike <- nimbleFunction(
     proposalTheta <- 0
     sumv <- 0
     for (i in 1:p){
-      sumv = sumv + v[i]
+      sumv <- sumv + v[i]
     }
     # nimCat("old sumv: ", sumv)
 

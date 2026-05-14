@@ -4,6 +4,7 @@
 \alias{BayesSIM}
 \alias{BayesSIM_setup}
 \alias{print.bsim}
+\alias{print.bsimSetup}
 \title{Integrated Function for Bayesian Single-Index Regression}
 \usage{
 BayesSIM(
@@ -43,6 +44,8 @@ BayesSIM_setup(
 )
 
 \method{print}{bsim}(x, digits = 3, ...)
+
+\method{print}{bsimSetup}(x, digits = 3, ...)
 }
 \arguments{
 \item{formula}{an object of class \link{formula}. Interaction term is not allowed for single-index model.}

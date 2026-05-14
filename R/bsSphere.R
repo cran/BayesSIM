@@ -571,7 +571,7 @@ bsSphere.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "bsSphere")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -580,7 +580,7 @@ bsSphere.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "bsSphere")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

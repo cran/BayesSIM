@@ -490,7 +490,7 @@ gpPolar.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "gpPolar")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -499,7 +499,7 @@ gpPolar.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "gpPolar")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

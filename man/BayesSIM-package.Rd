@@ -14,6 +14,7 @@ Provides tools for fitting Bayesian single index models with flexible choices of
 
 Authors:
 \itemize{
+  \item Seowoo Jung \email{jsw1347@ewha.ac.kr}
   \item Eun-kyung Lee \email{lee.eunk@ewha.ac.kr}
 }
 

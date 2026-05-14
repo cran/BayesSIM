@@ -139,32 +139,6 @@ test_that("print.bsim prints header and coefficients when samples exist", {
   )
 })
 
-test_that("print.bsim prints message when samples are NULL", {
-  X <- matrix(rnorm(4), ncol = 2)
-  colnames(X) <- c("x1", "x2")
-  Y <- matrix(rnorm(2), ncol = 1)
-
-  obj <- list(
-    coefficients = c(index1 = 0.5, index2 = -0.5),
-    ses_coef     = c(0.1, 0.2),
-    residuals    = c(0.1, -0.1),
-    fitted.values = c(1, 2),
-    linear.predictors = c(0.3, 0.4),
-    gof          = 0.25,
-    input = list(
-      origdata = list(x = X, y = Y),
-      formula  = c("y", "~", "x1 + x2")
-    ),
-    samples   = NULL,
-    modelName = "bsFisher"
-  )
-  class(obj) <- "bsim"
-
-  expect_output(
-    print(obj),
-    "Try compiling the object and draw posterior samples"
-  )
-})
 
 test_that("coef.bsim returns mean coefficients and SE when requested", {
   xData <- matrix(rnorm(4), ncol = 2)

@@ -2,7 +2,6 @@
 % Please edit documentation in R/generics.R
 \name{GOF}
 \alias{GOF}
-\alias{gof}
 \alias{GOF.bsim}
 \title{Goodness of Fit for \code{BayesSIM}}
 \usage{

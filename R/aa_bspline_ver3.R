@@ -56,14 +56,14 @@ mat_wo_col1 <- nimble::nimbleFunction(
 )
 
 
-update_spline_df = nimble::nimbleFunction(
+update_spline_df <- nimble::nimbleFunction(
   run = function(temp = SplineState()){
     temp$spline_df <- nimDim(temp$internal_knots)[1]+ temp$order
   }
 )
 
 
-update_x_index = nimble::nimbleFunction(
+update_x_index <- nimble::nimbleFunction(
   run = function(temp = SplineState()){
     if (temp$is_x_index_latest & nimDim(temp$x_index)[1] > 0){
       return()
@@ -96,7 +96,7 @@ update_x_index = nimble::nimbleFunction(
   })
 
 
-update_knot_sequence = nimble::nimbleFunction(
+update_knot_sequence <- nimble::nimbleFunction(
   run = function(temp = SplineState()){
     n <- temp$order
     out <- nimC(nimRep(temp$boundary_knots[1], n), temp$internal_knots,
@@ -134,7 +134,7 @@ get_basis_simple <- nimble::nimbleFunction(
           i2 <- j_index + temp$order
           den <- temp$knot_sequence[i2] - temp$knot_sequence[i1]
           term <- bmat[i, j_index]/den
-          bmat[i, j_index] = saved + (temp$knot_sequence[i2] - temp$x[i])*term
+          bmat[i, j_index] <- saved + (temp$knot_sequence[i2] - temp$x[i])*term
           saved <- (temp$x[i] - temp$knot_sequence[i1])*term
         }
         bmat[i, (temp$x_index[i]+k+1)] <- saved
@@ -206,7 +206,7 @@ simplify_knots <- nimble::nimbleFunction(
 )
 
 
-get_inside_x = nimble::nimbleFunction(
+get_inside_x <- nimble::nimbleFunction(
   run = function(x = double(1), boundary_knots = double(1)){
     returnType(double(1))
     minKnots <- min(boundary_knots)
@@ -218,7 +218,7 @@ get_inside_x = nimble::nimbleFunction(
   })
 
 
-gen_default_internal_knots = nimble::nimbleFunction(
+gen_default_internal_knots <- nimble::nimbleFunction(
   run = function(inside_x = double(1),
                  boundary_knots = double(1),
                  n_internal_knots = integer(0)){
@@ -249,7 +249,7 @@ gen_default_internal_knots = nimble::nimbleFunction(
 
 
 
-SplineBase1 = nimble::nimbleFunction(
+SplineBase1 <- nimble::nimbleFunction(
   run = function(x = double(1), spline_df = integer(0), degree = integer(0, default = 3),
                  intercept = integer(0), Boundary.knots =  double(1, default = numeric(0))){
     returnType(SplineState())
@@ -277,7 +277,7 @@ SplineBase1 = nimble::nimbleFunction(
 )
 
 
-SplineBase2 = nimble::nimbleFunction(
+SplineBase2 <- nimble::nimbleFunction(
   run = function(x = double(1), degree = integer(0, default = 3),
                  internal_knots = double(1),
                  Boundary.knots =  double(1, default = numeric(0))){

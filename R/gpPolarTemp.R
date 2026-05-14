@@ -39,7 +39,8 @@ gpPolarHigh.default <- function(formula, data,
                     thin = 1, nchain = 1, setSeed = FALSE
 ){
   start1 <- Sys.time()
-  sigma2 <- 0; psi <- 0;
+  sigma2 <- 0
+  psi <- 0
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
@@ -351,7 +352,7 @@ gpPolarHigh.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "gpPolar")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -360,7 +361,7 @@ gpPolarHigh.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "gpPolar")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

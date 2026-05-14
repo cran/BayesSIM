@@ -465,7 +465,7 @@ gpFisher.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "gpFisher")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -474,7 +474,7 @@ gpFisher.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "gpFisher")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

@@ -688,7 +688,7 @@ gpSphere.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "gpSphere")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -697,7 +697,7 @@ gpSphere.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "gpSphere")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

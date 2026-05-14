@@ -3,7 +3,7 @@
 expcov_gpSpike <- nimbleFunction(
   run = function(vec = double(1), invlambda= double(0)){
     returnType(double(2))
-    n = length(vec)
+    n <- length(vec)
     result <- matrix(nrow = n, ncol = n, init = FALSE)
     for(i in 1:(n-1)){
       for(j in (i+1):n){
@@ -13,7 +13,7 @@ expcov_gpSpike <- nimbleFunction(
       result[i, i] <- invlambda
     }
     result[n, n] <- invlambda
-    result = result + diag(rep(1, n))
+    result <- result + diag(rep(1, n))
 
     return(result)
 
@@ -136,7 +136,7 @@ llFunThetaV1 <- nimbleFunction(
     # print(part1)
     part2 <- dnorm(theta_raw[idx], 0, theta_sig, log = TRUE) * vi[idx]
     # print(part2)
-    part3 <- 0;
+    part3 <- 0
     # part4 <- 0
     for (i in 1:N){
       part3 <- part3 + sqrt_expcovtemp[i]
@@ -187,7 +187,7 @@ llFunThetaV2 <- nimbleFunction(
     # part1 <- lgamma(sumvi + a0)+lgamma(p-sumvi+b0)
     part2 <- dnorm(theta_raw[idx], 0, theta_sig, log = TRUE)
     # print(part2)
-    part3 <- 0;
+    part3 <- 0
     # part4 <- 0
     for (i in 1:N){
       part3 <- part3 + sqrt_expcovtemp[i]

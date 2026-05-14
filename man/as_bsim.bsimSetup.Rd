@@ -2,15 +2,20 @@
 % Please edit documentation in R/generics.R
 \name{as_bsim}
 \alias{as_bsim}
+\alias{as_bsim.bsimSetup}
 \title{Construct a Fitted Model Object from Model Setup and MCMC Output}
 \usage{
-as_bsim(setup, mcmc.out)
+as_bsim(object, mcmc.out, ...)
+
+\method{as_bsim}{bsimSetup}(object, mcmc.out, ...)
 }
 \arguments{
-\item{setup}{A \code{BayesSIM} setup object, typically the output of a
+\item{object}{A \code{BayesSIM} setup object, typically the output of a
 \code{_setup} function.}
 
 \item{mcmc.out}{MCMC output corresponding to the result of a call to \code{runMCMC()}.}
+
+\item{...}{Additional arguments passed to other methods.}
 }
 \value{
 An object of class \code{"bsim"} containing posterior samples,
@@ -38,5 +43,4 @@ mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
 fit2 <- as_bsim(models, mcmc.out)
 summary(fit2)
 }
-
 }

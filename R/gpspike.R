@@ -521,7 +521,7 @@ gpSpike.default <- function(formula, data,
     out$residuals <- out$fitted.values - as.vector(Y)
     out$gof <- mean(out$residuals^2)
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -530,7 +530,7 @@ gpSpike.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "gpSpike")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

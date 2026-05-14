@@ -117,7 +117,7 @@ initfunction_gpPolar <- function(xobs, yobs, kappa_init, sigma2_init, psi_init =
 
 optimized<-function(f,xobs,kappa,thetahat,p)
 {
-  n=length(f)
+  n <- length(f)
   thetahat<-as.numeric(as.matrix(thetahat))
   alphahat<-matrix(0,p,1)
   alphahat[,1] <- alphaTheta(thetahat)
@@ -126,10 +126,10 @@ optimized<-function(f,xobs,kappa,thetahat,p)
   f<-f[order(x)]
   x<-x[order(x)]
 
-  r=matrix(0,n+1,1)
-  r[2:n]=exp(-kappa*(x[2:n]-x[1:(n-1)]))
-  r[1]=0
-  r[n+1]=0
+  r <- matrix(0,n+1,1)
+  r[2:n]<-exp(-kappa*(x[2:n]-x[1:(n-1)]))
+  r[1]<-0
+  r[n+1]<-0
 
   e<-matrix(0,n+1,1)
   e<-r/(1-(r^2))
@@ -137,12 +137,12 @@ optimized<-function(f,xobs,kappa,thetahat,p)
   d[1:n]<-1+r[1:n]*e[1:n]+r[2:(n+1)]*e[2:(n+1)]
 
   Cinv<-matrix(0,n,n)
-  diag(Cinv)=d
+  diag(Cinv) <- d
 
   for(i in 1:(n-1))
   {
-    Cinv[i,i+1]=-e[i+1]
-    Cinv[i+1,i]=-e[i+1]
+    Cinv[i,i+1] <- -e[i+1]
+    Cinv[i+1,i] <- -e[i+1]
   }
 
 
@@ -257,14 +257,14 @@ invcov <- nimbleFunction(
 expcov_gpPolar <- nimbleFunction(
   run = function(vec = double(1), kappa = double(0)){
     returnType(double(2))
-    n = length(vec)
+    n <- length(vec)
     result <- matrix(nrow = n, ncol = n, init = FALSE)
     for(i in 1:n){
       for(j in 1:n){
         result[i, j] <- exp(-kappa * abs(vec[i] - vec[j]))
       }
     }
-    result = (result + t(result))/2 #  + diag(rep(1e-10, n))
+    result <- (result + t(result))/2 #  + diag(rep(1e-10, n))
 
     return(result)
 
@@ -275,7 +275,8 @@ expcov_gpPolar <- nimbleFunction(
 expcovTest_gpPolar <- nimbleFunction(
   run = function(vec1 = double(1), vec2 = double(1), kappa = double(0)){
     returnType(double(2))
-    n1 = length(vec1); n2 = length(vec2)
+    n1 <- length(vec1)
+    n2 <- length(vec2)
     result <- matrix(nrow = n1, ncol = n2, init = FALSE)
     for(i in 1:n1){
       for(j in 1:n2){

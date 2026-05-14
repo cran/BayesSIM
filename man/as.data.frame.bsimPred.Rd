@@ -18,6 +18,19 @@ data.frame of prediction information.
 Extracts fitted result that contains posterior mean/median prediction of response variable, and
 standard error, credible interval of each data point in data.frame.
 }
+\examples{
+\donttest{
+data("DATA1")
+simdata2 <- data.frame(DATA1$X, y = DATA1$y)
+fit_one  <- BayesSIM(y ~ ., data = simdata2,
+                    niter = 5000, nburnin = 1000, nchain = 1)
+
+pred <- predict(fit_one, se.fit = TRUE, interval = "credible",level = 0.8)
+results <- as.data.frame(pred)
+summary(results)
+}
+
+}
 \seealso{
 \code{\link{predict.bsim}}
 }

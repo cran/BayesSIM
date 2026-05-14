@@ -166,7 +166,7 @@ bsFisher.default <- function(formula, data,
                              thin = 1, nchain = 1, setSeed = FALSE
 ){
   start1 <- Sys.time()
-  index <- 0;
+  index <- 0
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
@@ -542,7 +542,7 @@ bsFisher.default <- function(formula, data,
                 defModel = simpleModel, defSampler = mcmc1,
                 modelName = "bsFisher")
 
-    class(out) = "bsim"
+    class(out) <- "bsim"
 
 
   } else{
@@ -551,7 +551,7 @@ bsFisher.default <- function(formula, data,
                 defSampler = mcmc1,
                 modelName = "bsFisher")
 
-    class(out) = "bsimSetup"
+    class(out) <- "bsimSetup"
 
   }
   return(out)

@@ -2,14 +2,14 @@
 expcov_gpSphere <- nimbleFunction(
   run = function(vec = double(1), l = double(0), amp = double(0)){
     returnType(double(2))
-    n = length(vec)
+    n <- length(vec)
     result <- matrix(nrow = n, ncol = n, init = FALSE)
     for(i in 1:n){
       for(j in 1:n){
         result[i, j] <- amp * exp(-(vec[i] - vec[j])^2/l)
       }
     }
-    result = (result + t(result))/2 + diag(rep(1e-4, n))
+    result <- (result + t(result))/2 + diag(rep(1e-4, n))
 
     return(result)
 
@@ -67,7 +67,7 @@ obj_btt <- nimbleFunction(
       lengthscale <- lengthscale + 1e-6
     }
 
-    n = nimDim(X)[1]
+    n <- nimDim(X)[1]
     Xlin <- numeric(n)
     for (i in 1:n){
       Xlin[i] <- sum(X[i,] * index)
@@ -129,7 +129,7 @@ obj_btt_EB <- nimbleFunction(
     index <- index/sqrt(sum(index^2))
     # nimPrint(index)
 
-    n = nimDim(X)[1]
+    n <- nimDim(X)[1]
     Xlin <- numeric(n)
     for (i in 1:n){
       Xlin[i] <- sum(X[i,] * index)

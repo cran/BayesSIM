@@ -20,9 +20,9 @@ rW <- nimble::nimbleFunction(
     for(i in 1:size){
       continue_sampling <- TRUE
       while (continue_sampling) {
-        Z = rbeta(1, d/2, d/2)
-        w = (1 - (1 + b) * Z) / (1 - (1 - b) * Z)
-        U = runif(1, 0, 1)
+        Z <- rbeta(1, d/2, d/2)
+        w <- (1 - (1 + b) * Z) / (1 - (1 - b) * Z)
+        U <- runif(1, 0, 1)
 
         if (lambda * w + d * log(1 - x0 * w) - c < log(U)) {
           resultW[i] <- w
