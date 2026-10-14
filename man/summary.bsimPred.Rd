@@ -19,7 +19,7 @@
 \item{digits}{The minimum number of significant digits to be printed.}
 }
 \value{
-Metrics are including RMSE, MAE, Mean bias, and coverage. In terms of coverage, it is only available
+Metrics are including mean squared error (MSE), mean absolute error (MAE), mean bias, and coverage. In terms of coverage, it is only available
 when the "bsimPred" includes interval, corresponding to \code{interval = "credible"} options for \code{predict} function.
 It indicates mean coverage rate of data points whether confidence intervals include true response values.
 In this case, all chains are combined for the computation.
@@ -35,7 +35,7 @@ Performance of prediction with point predicted values.
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 
 fit_one <- BayesSIM(y ~ ., data = simdata2,
-                    niter = 5000, nburnin = 1000, nchain = 1)
+                    niter = 10000, nburnin = 5000, nchain = 2)
 
 # Prediction with 95\% credible interval at new data
 newx <- data.frame(X1 = rnorm(10), X2 = rnorm(10), X3 = rnorm(10), X4 = rnorm(10))

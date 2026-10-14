@@ -15,7 +15,9 @@ gpFisher(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 gpFisher_setup(
@@ -28,7 +30,9 @@ gpFisher_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 }
 \arguments{
@@ -53,6 +57,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
+
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
 }
 \value{
 A \code{list} typically containing:
@@ -77,14 +85,14 @@ the index \eqn{\theta} lies on the unit sphere with von Mises-Fisher prior, and 
 with Gaussian process.
 }
 \details{
-\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_j)^2}{l})} as a link function, where \eqn{t_i, t_j, j = 1, \ldots, n} is index value.
+\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_l)^2}{\gamma})} as a link function, where \eqn{t_i, t_l, i, l = 1, \ldots, n} is index value.
 Index vector should be length 1.
 
 \strong{Priors}
 \itemize{
 \item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
 \item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
-Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_l} and rate parameter \eqn{\beta_l}.
+Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_{\gamma}} and rate parameter \eqn{\beta_{\gamma}}.
 \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 
 }
@@ -101,7 +109,7 @@ By default, the estimated vector from projection pursuit regression is assigned.
 
 \item Link function:
 \itemize{
-\item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{l}.
+\item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{\gamma}.
 \code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
 \item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
 \code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
@@ -120,9 +128,11 @@ These are the initial values set in the function. You can define new values for 
 \code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
 \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
 }
+\strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 }
 \examples{
-\donttest{
+\dontrun{
 set.seed(123)
 N <- 60; p <- 2
 x1 <- runif(N, -3, 5)
@@ -147,7 +157,7 @@ initList <- getInit(models)
 mcmc.out <- runMCMC(nimSampler, niter = 1000, nburnin = 100, thin = 1,
                    nchains = 1, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 }
 

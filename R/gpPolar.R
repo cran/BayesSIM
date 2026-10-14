@@ -24,8 +24,8 @@
 #' Sampling is  performed on the angular parameters \eqn{\theta} defining
 #' the index vector. The link function \eqn{f(\cdot)} is modeled by a Gaussian process
 #' prior with zero mean and an Ornstein–Uhlenbeck (OU) covariance kernel
-#' \eqn{\exp(-\kappa \cdot |t_i - t_j|), i, j = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
-#' parameter and \eqn{t_i, t_j} is index value (\eqn{t_i = X_i'\theta}).
+#' \eqn{\exp(-\kappa \cdot |t_i - t_l|), i, l = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
+#' parameter and \eqn{t_i, t_l} is index value (\eqn{t_i = X_i'\theta}).
 
 #'
 #' \strong{Priors}
@@ -66,6 +66,8 @@
 #'      \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
 #' }
 #'
+#'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+#'  In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 #'
 #'
 #' @inherit bsFisher return
@@ -122,8 +124,8 @@
 #' mcmc.out2 <- runMCMC(sampler2, niter = 3000, nburnin = 2000, thin = 1,
 #'                     nchains = 1, setSeed = TRUE, init = initList2,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' fit1_split <- as_bsim(models1, mcmc.out1)
-#' fit2_split <- as_bsim(models2, mcmc.out2)
+#' fit1_split <- as_bsim(models1, mcmc.out1, Ccompile1)
+#' fit2_split <- as_bsim(models2, mcmc.out2, Ccompile2)
 #' }
 #'
 #' @references
@@ -133,17 +135,19 @@
 #' @name gpPolar
 #' @export
 gpPolar <- function(formula, data,
-                   prior = NULL,
-                   init = NULL,
-                   monitors = NULL, niter = 10000, nburnin=1000,
-                   thin = 1, nchain = 1, setSeed = FALSE){
+                    prior = NULL,
+                    init = NULL,
+                    monitors = NULL, niter = 10000, nburnin=1000,
+                    thin = 1, nchain = 1, setSeed = FALSE,
+                    scale = FALSE, center = FALSE){
 
   return(gpPolar.default(formula = formula, data = data,
-                          prior = prior,
-                          init = init,
-                          sampling = TRUE, monitors = monitors,
+                         prior = prior,
+                         init = init,
+                         sampling = TRUE, monitors = monitors,
                          niter = niter, nburnin=nburnin,
-                         thin = thin, nchain = nchain, setSeed = setSeed))
+                         thin = thin, nchain = nchain, setSeed = setSeed,
+                         scale = scale, center = center))
 }
 
 #' @rdname gpPolar
@@ -152,21 +156,24 @@ gpPolar_setup <- function(formula, data,
                           prior = NULL,
                           init = NULL,
                           monitors = NULL, niter = 10000, nburnin=1000,
-                          thin = 1, nchain = 1, setSeed = FALSE){
+                          thin = 1, nchain = 1, setSeed = FALSE,
+                          scale = FALSE, center = FALSE){
   return(gpPolar.default(formula = formula, data = data,
                          prior = prior,
                          init = init,
                          sampling = FALSE, monitors = monitors,
                          niter = niter, nburnin=nburnin,
-                         thin = thin, nchain = nchain, setSeed = setSeed))
+                         thin = thin, nchain = nchain, setSeed = setSeed,
+                         scale = scale, center = center))
 }
 
 gpPolar.default <- function(formula, data,
-                    prior = NULL,
-                    init = NULL,
-                    sampling = TRUE,
-                    monitors = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, nchain = 1, setSeed = FALSE){
+                            prior = NULL,
+                            init = NULL,
+                            sampling = TRUE,
+                            monitors = NULL, niter = 10000, nburnin=1000,
+                            thin = 1, nchain = 1, setSeed = FALSE,
+                            scale = FALSE, center = FALSE){
 
   start1 <- Sys.time()
   sigma2 <- 0; psi <- 0
@@ -200,309 +207,336 @@ gpPolar.default <- function(formula, data,
     "pred_fitted"
   )
 
-  pkg <- "BayesSIM"
-  ns <- asNamespace(pkg)
-  list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
+  ## snapshots: Find global objects colliding with internal function name
+  colliding <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+  saved <- mget(colliding, envir = .GlobalEnv, inherits = FALSE)
 
 
+  tryCatch({
+    pkg <- "BayesSIM"
+    ns <- asNamespace(pkg)
+    list2env(mget(.fns, envir = ns, inherits = FALSE), envir = .GlobalEnv)
+    # data
+    if (!is.data.frame(data)){
+      stop("data should be an data.frame.")
+    }
 
-  # data
-  if (!is.data.frame(data)){
-    stop("data should be an data.frame.")
-  }
-
-  Call <- match.call()
-  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
-  if (indx[1] == 0L)
-    stop("a 'formula' argument is required")
-  temp <- Call[c(1L,indx)]
-  temp[[1L]] <- quote(stats::model.frame)
-  m <- eval.parent(temp)
-  Terms <- attr(m,"terms")
-  formula <- as.character(formula)
-  response.name <- formula[2]
-  data.name <- strsplit(formula[3]," \\+ ")[[1]]
-  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
-  if(data.name[1]=="."){
-    tot.name <- response.name
-  } else{
-    tot.name <- c(response.name ,data.name)
-  }
-  if(!int.flag){
-    stop("BayesSIM cannot treat interaction terms")
-  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
-           length(tot.name)){
-    stop(paste(paste(tot.name[duplicated(c(colnames(data),
-                                           tot.name))[-c(1:ncol(data))]],collapse=","),
-               " is/are not in your data"))
-  }else{
-    origY <- data[ ,response.name]
+    Call <- match.call()
+    indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+    if (indx[1] == 0L)
+      stop("a 'formula' argument is required")
+    temp <- Call[c(1L,indx)]
+    temp[[1L]] <- quote(stats::model.frame)
+    m <- eval.parent(temp)
+    Terms <- attr(m,"terms")
+    formula <- as.character(formula)
+    response.name <- formula[2]
+    data.name <- strsplit(formula[3]," \\+ ")[[1]]
+    int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
     if(data.name[1]=="."){
-      origX <- data[,colnames(data) != response.name]
-    }else {
-      origX <- data[ ,data.name,drop=FALSE]
+      tot.name <- response.name
+    } else{
+      tot.name <- c(response.name ,data.name)
     }
-  }
-
-  # X = origX, Y = origY
-  X <- as.matrix(origX)
-  Y <- as.matrix(origY)
-
-  # data dimension
-  N <- length(Y)
-  p <- ncol(X)
-
-  # Model code
-  Rmodel <- nimbleCode({
-    # 0. Likelihood(y)
-    Sigma[1:N,1:N] <-  diag(rep(sigma2, N))
-    y[1:N] ~ dmnorm(linkFunction[1:N], cov = Sigma[1:N,1:N])
-
-    # 1. linkFunction(f) - gibbs
-    cov[1:N, 1:N] <- expcov_gpPolar(Xlin[1:N], kappa)
-    linkFunction[1:N] ~ dmnorm(mu0[1:N], cov = cov[1:N, 1:N])
-
-    # 2. sigma2 - gibbs
-    sigma2 ~ dinvgamma(a, b)
-
-    # 3. hyper-prior-kappa(MAP)
-    kappa ~ dunif(kappa_a, kappa_b)
-
-    # 4. index, psi
-    for(j in 1:(p-1)) {
-      d[j] ~ dunif(1e-10, 1e10)
-      psi[j] ~ dbeta(c[j], d[j])
+    if(!int.flag){
+      stop("BayesSIM cannot treat interaction terms")
+    }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+             length(tot.name)){
+      stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                             tot.name))[-c(1:ncol(data))]],collapse=","),
+                 " is/are not in your data"))
+    }else{
+      origY <- data[ ,response.name]
+      if(data.name[1]=="."){
+        origX <- data[,colnames(data) != response.name]
+      }else {
+        origX <- data[ ,data.name,drop=FALSE]
+      }
     }
-    index[1:p] <- alphaTheta(psi[1:(p-1)]*pi)
-    Xlin[1:N] <- Xlinear(index[1:p], x[1:N, 1:p])
+
+    # Scale the data
+    scaleCenter <- NULL; scaleSD <- NULL
+    if (scale || center){
+      scaleX <- scale(origX, center = center, scale = scale)
+      if (center) scaleCenter <- attr(scaleX, "scaled:center")
+      if (scale) scaleSD <- attr(scaleX, "scaled:scale")
+      X <- as.matrix(scaleX)
+    } else{
+      X <- as.matrix(origX)
+    }
+    Y <- as.matrix(origY)
+
+    # data dimension
+    N <- length(Y)
+    p <- ncol(X)
+
+    # Model code
+    Rmodel <- nimbleCode({
+      # 0. Likelihood(y)
+      Sigma[1:N,1:N] <-  diag(rep(sigma2, N))
+      y[1:N] ~ dmnorm(linkFunction[1:N], cov = Sigma[1:N,1:N])
+
+      # 1. linkFunction(f) - gibbs
+      cov[1:N, 1:N] <- expcov_gpPolar(Xlin[1:N], kappa)
+      linkFunction[1:N] ~ dmnorm(mu0[1:N], cov = cov[1:N, 1:N])
+
+      # 2. sigma2 - gibbs
+      sigma2 ~ dinvgamma(a, b)
+
+      # 3. hyper-prior-kappa(MAP)
+      kappa ~ dunif(kappa_a, kappa_b)
+
+      # 4. index, psi
+      for(j in 1:(p-1)) {
+        d[j] ~ dunif(1e-10, 1e10)
+        psi[j] ~ dbeta(c[j], d[j])
+      }
+      index[1:p] <- alphaTheta(psi[1:(p-1)]*pi)
+      Xlin[1:N] <- Xlinear(index[1:p], x[1:N, 1:p])
+    })
+
+
+    # Prior parameters
+    ## psi
+    if (!is.null(prior$index$psi$alpha) & length(prior$index$psi$alpha) != (p-1))
+    {stop("Prior psi has incorrect dimension")}
+    if (is.null(prior$index$psi$alpha)){
+      psi_c <- c(rep(5000,(p-1)))
+    } else{
+      psi_c <- prior$index$psi$alpha
+    }
+
+    ## sigma2 - scalar
+    if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
+      stop("Prior sigma2 (a) has incorrect value.")
+    } else{
+      sigma2_shape <- prior$sigma2$shape
+    }
+
+    if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
+      stop("Prior sigma2 (b) has incorrect value.")
+    } else{
+      sigma2_rate <- prior$sigma2$rate
+    }
+
+    # kappa
+    if (is.null(prior$link$kappa$min)||length(prior$link$kappa$min) >= 2 || prior$link$kappa$min < 0){
+      stop("Prior kappa (min) has incorrect value.")
+    } else{
+      kappa_min <- prior$link$kappa$min
+    }
+
+    if (is.null(prior$link$kappa$max)||length(prior$link$kappa$max) >= 2 || prior$link$kappa$max < 0){
+      stop("Prior kappa (max) has incorrect value.")
+    } else{
+      kappa_max <- prior$link$kappa$max
+    }
+
+    if (is.null(prior$link$kappa$grid_width)||length(prior$link$kappa$grid_width) >= 2 || prior$link$kappa$grid_width < 0){
+      stop("Prior kappa (grid_width) has incorrect value.")
+    } else{
+      kappa_grid_width <- prior$link$kappa$grid_width
+    }
+
+    # Initialize
+    init_psi <- init$index$psi
+    if (!is.null(init_psi) & length(init_psi) != (p-1)){
+      stop("Initial psi has incorrect dimension")
+    }
+
+    if (is.null(init$link$kappa)||length(init$link$kappa) >= 2 || init$link$kappa < 0){
+      stop("Initial kappa has incorrect value.")
+    } else{
+      init_kappa <- init$link$kappa
+    }
+
+    if (is.null(init$sigma2)||length(init$sigma2) >= 2 || init$sigma2 < 0){
+      stop("Initial sigma2 has incorrect value.")
+    } else{
+      init_sigma2 <- init$sigma2
+    }
+
+    # seed
+    seedNum <- rep(FALSE, nchain)
+    seedNum <- rep(FALSE, nchain)
+
+    if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+      stop("'setSeed' must be logical or numeric.")
+    }
+
+    if (is.logical(setSeed)) {
+
+      if (length(setSeed) != 1) {
+        stop("If 'setSeed' is logical, it must be length 1.")
+      }
+
+      if (setSeed) {
+        seedNum <- seq_len(nchain)
+      } else {
+        seedNum <- rep(FALSE, nchain)
+      }
+    }
+
+    if (is.numeric(setSeed)) {
+
+      if (length(setSeed) == 1) {
+        seedNum <- rep(setSeed, nchain)
+
+      } else if (length(setSeed) == nchain) {
+        seedNum <- setSeed
+
+      } else {
+        stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
+      }
+    }
+
+
+    inits_list <- lapply(seq_len(nchain), function(j) initfunction_gpPolar(xobs = X, yobs = as.vector(Y), kappa_init = init_kappa,
+                                                                           sigma2_init = init_sigma2, psi_init = init_psi,
+                                                                           grid.with = 0.1,
+                                                                           sig_a = sigma2_shape, sig_b = sigma2_rate,
+                                                                           setSeed = seedNum[j]))
+    firstInit <- inits_list[[1]]
+
+
+
+
+    message("== Building model ==")
+    suppressMessages(simpleModel <- nimbleModel(Rmodel,
+                                                data = list(x = X,
+                                                            y = as.vector(Y)),
+                                                constants = list(c = psi_c,
+                                                                 kappa_a = kappa_min, kappa_b = kappa_max,
+                                                                 a = sigma2_shape, b = sigma2_rate,
+                                                                 p = p, N = N, mu0 = rep(0, N), pi = pi),
+                                                inits = firstInit))
+
+    # Assign samplers
+    message("== Assigning samplers ==")
+    # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
+    monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
+    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                               monitors = monitorsList,
+                                               print = FALSE))
+
+
+    mcmcConf$removeSamplers(c("sigma2"))
+    mcmcConf$addSampler(target = c("sigma2"),
+                        type   = gibbsSampler_sigma2)
+
+    mcmcConf$removeSamplers(c("kappa"))
+    mcmcConf$addSampler(target = c("kappa"),
+                        type   = gibbsSampler_kappa,
+                        control = list(grid.width = kappa_grid_width))
+
+    mcmcConf$removeSamplers(c("psi", "d", "linkFunction"))
+    mcmcConf$addSampler(target = c("psi", "d", "linkFunction"),
+                        type   = MH_thetaeta)
+
+
+    mcmc1 <- buildMCMC(mcmcConf)
+    end1 <- Sys.time()
+    samples <- NULL
+
+    if (!sampling){
+
+      mcmc.out <- NULL
+
+    } else{
+      # Compile
+      start2 <- Sys.time()
+      message("== Compiling model ==")
+      suppressMessages(CsimpleModel <- compileNimble(simpleModel))
+      message("== Compiling samplers ==")
+      suppressMessages(Cmcmc <- compileNimble(mcmc1,
+                                              project = simpleModel,
+                                              resetFunctions = TRUE))
+      end2 <- Sys.time()
+
+      # Sampling
+      message("== Running MCMC ==")
+      if (is.logical(setSeed)) {
+        seedNum <- setSeed
+      }
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin,
+                          nchains = nchain, setSeed = seedNum, inits = inits_list,
+                          summary = FALSE, samplesAsCodaMCMC = TRUE)
+      # output
+      if (nchain > 1){
+        for (i in 1:nchain){
+          samples <- rbind(samples, mcmc.out[[i]])
+        }
+      } else{
+        samples <- mcmc.out
+      }
+    }
+
+    ## Input options
+    if (!sampling){
+      time <- NULL
+    } else{
+      time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
+    }
+
+    # results ---------------------------------------------------------------------
+    #Model point estimation
+    modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+    inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
+                         prior = list(index = list(psi = list(alpha = psi_c)),
+                                      link = list(kappa = list(min = kappa_min, max = kappa_max,
+                                                               grid_width = kappa_grid_width)),
+                                      sigma2 = list(shape = sigma2_shape, rate = sigma2_rate)),
+                         samplingOptions = list(sampling = sampling,
+                                                monitors = monitors, niter = niter,
+                                                nburnin = nburnin, thin = thin,
+                                                nchain = nchain, setSeed = setSeed),
+                         scaling = list(scale = scale, center = center,
+                                        scaleCenter = scaleCenter, scaleSD = scaleSD),
+                         init = inits_list, # initial value for MCMC
+                         time = time)
+
+
+    if (sampling){
+      out <- list(coefficients = modelESTLIST$coefficients,
+                  ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                  residuals = modelESTLIST$residuals,
+                  fitted.values = modelESTLIST$fitted.values,
+                  linear.predictors = modelESTLIST$linear.predictors,
+                  gof = modelESTLIST$gof,
+                  samples = mcmc.out, # return of runMCMC
+                  input = inputOptions,
+                  defModel = simpleModel, defSampler = mcmc1,
+                  defCModel = CsimpleModel, defCSampler = Cmcmc,
+                  modelName = "gpPolar")
+
+      class(out) <- "bsim"
+
+
+    } else{
+      out <- list(input = inputOptions,
+                  defModel = simpleModel,
+                  defSampler = mcmc1,
+                  modelName = "gpPolar")
+
+      class(out) <- "bsimSetup"
+
+    }
+    return(out)
+
+
+  }, finally = {
+    present <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+    if (length(present)) rm(list = present, envir = .GlobalEnv)
+    if (length(saved))  list2env(saved, envir = .GlobalEnv)
   })
 
 
-  # Prior parameters
-  ## psi
-  if (!is.null(prior$index$psi$alpha) & length(prior$index$psi$alpha) != (p-1))
-  {stop("Prior psi has incorrect dimension")}
-  if (is.null(prior$index$psi$alpha)){
-    psi_c <- c(rep(5000,(p-1)))
-  } else{
-    psi_c <- prior$index$psi$alpha
-  }
-
-  ## sigma2 - scalar
-  if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
-    stop("Prior sigma2 (a) has incorrect value.")
-  } else{
-    sigma2_shape <- prior$sigma2$shape
-  }
-
-  if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
-    stop("Prior sigma2 (b) has incorrect value.")
-  } else{
-    sigma2_rate <- prior$sigma2$rate
-  }
-
-  # kappa
-  if (is.null(prior$link$kappa$min)||length(prior$link$kappa$min) >= 2 || prior$link$kappa$min < 0){
-    stop("Prior kappa (min) has incorrect value.")
-  } else{
-    kappa_min <- prior$link$kappa$min
-  }
-
-  if (is.null(prior$link$kappa$max)||length(prior$link$kappa$max) >= 2 || prior$link$kappa$max < 0){
-    stop("Prior kappa (max) has incorrect value.")
-  } else{
-    kappa_max <- prior$link$kappa$max
-  }
-
-  if (is.null(prior$link$kappa$grid_width)||length(prior$link$kappa$grid_width) >= 2 || prior$link$kappa$grid_width < 0){
-    stop("Prior kappa (grid_width) has incorrect value.")
-  } else{
-    kappa_grid_width <- prior$link$kappa$grid_width
-  }
-
-  # Initialize
-  init_psi <- init$index$psi
-  if (!is.null(init_psi) & length(init_psi) != (p-1)){
-    stop("Initial psi has incorrect dimension")
-  }
-
-  if (is.null(init$link$kappa)||length(init$link$kappa) >= 2 || init$link$kappa < 0){
-    stop("Initial kappa has incorrect value.")
-  } else{
-    init_kappa <- init$link$kappa
-  }
-
-  if (is.null(init$sigma2)||length(init$sigma2) >= 2 || init$sigma2 < 0){
-    stop("Initial sigma2 has incorrect value.")
-  } else{
-    init_sigma2 <- init$sigma2
-  }
-
-  # seed
-  seedNum <- rep(FALSE, nchain)
-  seedNum <- rep(FALSE, nchain)
-
-  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
-    stop("'setSeed' must be logical or numeric.")
-  }
-
-  if (is.logical(setSeed)) {
-
-    if (length(setSeed) != 1) {
-      stop("If 'setSeed' is logical, it must be length 1.")
-    }
-
-    if (setSeed) {
-      seedNum <- seq_len(nchain)
-    } else {
-      seedNum <- rep(FALSE, nchain)
-    }
-  }
-
-  if (is.numeric(setSeed)) {
-
-    if (length(setSeed) == 1) {
-      seedNum <- rep(setSeed, nchain)
-
-    } else if (length(setSeed) == nchain) {
-      seedNum <- setSeed
-
-    } else {
-      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
-    }
-  }
 
 
-  inits_list <- lapply(seq_len(nchain), function(j) initfunction_gpPolar(xobs = X, yobs = as.vector(Y), kappa_init = init_kappa,
-                                                                         sigma2_init = init_sigma2, psi_init = init_psi,
-                                                                         grid.with = 0.1,
-                                                                         sig_a = sigma2_shape, sig_b = sigma2_rate,
-                                                                         setSeed = seedNum[j]))
-  firstInit <- inits_list[[1]]
-
-
-
-
-  message("== Building model ==")
-  suppressMessages(simpleModel <- nimbleModel(Rmodel,
-                             data = list(x = X,
-                                         y = as.vector(Y)),
-                             constants = list(c = psi_c,
-                                              kappa_a = kappa_min, kappa_b = kappa_max,
-                                              a = sigma2_shape, b = sigma2_rate,
-                                              p = p, N = N, mu0 = rep(0, N), pi = pi),
-                             inits = firstInit))
-
-  # Assign samplers
-  message("== Assigning samplers ==")
-  # monitorsList <-  c("linkFunction","index", "psi", "kappa", "sigma", "d")
-  monitorsList <- c("index", "sigma2", "linkFunction", "kappa", "Xlin", "d", "psi")
-  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                                             monitors = monitorsList,
-                                             print = FALSE))
-
-
-  mcmcConf$removeSamplers(c("sigma2"))
-  mcmcConf$addSampler(target = c("sigma2"),
-                      type   = gibbsSampler_sigma2)
-
-  mcmcConf$removeSamplers(c("kappa"))
-  mcmcConf$addSampler(target = c("kappa"),
-                      type   = gibbsSampler_kappa,
-                      control = list(grid.width = kappa_grid_width))
-
-  mcmcConf$removeSamplers(c("psi", "d", "linkFunction"))
-  mcmcConf$addSampler(target = c("psi", "d", "linkFunction"),
-                      type   = MH_thetaeta)
-
-
-  mcmc1 <- buildMCMC(mcmcConf)
-  end1 <- Sys.time()
-
-
-  if (!sampling){
-    samples <- NULL
-    mcmc.out <- NULL
-
-  } else{
-    # Compile
-    start2 <- Sys.time()
-    message("== Compiling model ==")
-    suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compiling samplers ==")
-    suppressMessages(Cmcmc <- compileNimble(mcmc1,
-                                            project = simpleModel,
-                                            resetFunctions = TRUE))
-    end2 <- Sys.time()
-
-    # Sampling
-    message("== Running MCMC ==")
-    if (is.logical(setSeed)) {
-      seedNum <- setSeed
-    }
-    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                        thin = thin,
-                        nchains = nchain, setSeed = seedNum, inits = inits_list,
-                        summary = FALSE, samplesAsCodaMCMC = TRUE)
-    # output
-    if (nchain > 1){
-      for (i in 1:nchain){
-        samples <- rbind(samples, mcmc.out[[i]])
-      }
-    } else{
-      samples <- mcmc.out
-    }
-  }
-
-  ## Input options
-  if (!sampling){
-    time <- NULL
-  } else{
-    time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
-  }
-
-  # results ---------------------------------------------------------------------
-  #Model point estimation
-  modelESTLIST <- bsimFit_pointest(samples, X, Y)
-
-  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
-                       prior = list(index = list(psi = list(alpha = psi_c)),
-                                    link = list(kappa = list(min = kappa_min, max = kappa_max,
-                                                             grid_width = kappa_grid_width)),
-                                    sigma2 = list(shape = sigma2_shape, rate = sigma2_rate)),
-                       samplingOptions = list(sampling = sampling,
-                                              monitors = monitors, niter = niter,
-                                              nburnin = nburnin, thin = thin,
-                                              nchain = nchain, setSeed = setSeed),
-                       init = inits_list, # initial value for MCMC
-                       time = time)
-
-
-  if (sampling){
-    out <- list(coefficients = modelESTLIST$coefficients,
-                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
-                residuals = modelESTLIST$residuals,
-                fitted.values = modelESTLIST$fitted.values,
-                linear.predictors = modelESTLIST$linear.predictors,
-                gof = modelESTLIST$gof,
-                samples = mcmc.out, # return of runMCMC
-                input = inputOptions,
-                defModel = simpleModel, defSampler = mcmc1,
-                modelName = "gpPolar")
-
-    class(out) <- "bsim"
-
-
-  } else{
-    out <- list(input = inputOptions,
-                defModel = simpleModel,
-                defSampler = mcmc1,
-                modelName = "gpPolar")
-
-    class(out) <- "bsimSetup"
-
-  }
-  return(out)
 
 }
 

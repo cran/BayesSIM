@@ -47,18 +47,18 @@
 #'
 #' # One tool version - bsFisher
 #' fit1 <- BayesSIM(y ~ ., data = simdata,
-#'                  niter = 5000, nburnin = 1000,
-#'                  nchain = 1)
+#'                  niter = 10000, nburnin = 5000,
+#'                  nchain = 2)
 #'
 #' # Split version- bsFisher
-#' models <- BayesSIM_setup(y ~ ., data = simdata)
+#' models <- BayesSIM_setup(y ~ ., data = simdata, nchain = 2)
 #' Ccompile <- compileModelAndMCMC(models)
 #' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
-#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-#'                    nchains = 1, setSeed = TRUE, inits = initList,
+#' mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+#'                    nchains = 2, setSeed = TRUE, inits = initList,
 #'                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' fit2 <- as_bsim(models, mcmc.out)
+#' fit2 <- as_bsim(models, mcmc.out, Ccompile)
 #' summary(fit2)
 #' }
 #' @name BayesSIM
@@ -69,7 +69,8 @@ BayesSIM <- function(formula, data,
                      method = "FB",
                      lowerB = NULL, upperB = NULL,
                      monitors = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, nchain = 1, setSeed = FALSE){
+                     thin = 1, nchain = 1, setSeed = FALSE,
+                     scale = FALSE, center = FALSE){
   # prior_list <- 0; init_list <- 0
 
 
@@ -80,25 +81,29 @@ BayesSIM <- function(formula, data,
       fit <- bsFisher(formula = formula, data = data,
                       prior = prior, init = init,
                       monitors = monitors, niter = niter, nburnin = nburnin,
-                      thin = thin, nchain = nchain, setSeed = setSeed)
+                      thin = thin, nchain = nchain, setSeed = setSeed,
+                      scale = scale, center = center)
 
     } else if (indexprior == "sphere"){
       fit <- bsSphere(formula = formula, data = data,
                       prior = prior, init = init,
                       monitors = monitors, niter = niter, nburnin = nburnin,
-                      thin = thin, nchain = nchain, setSeed = setSeed)
+                      thin = thin, nchain = nchain, setSeed = setSeed,
+                      scale = scale, center = center)
 
     } else if (indexprior == "polar"){
       fit <- bsPolar(formula = formula, data = data,
                      prior = prior, init = init,
                      monitors = monitors, niter = niter, nburnin = nburnin,
-                     thin = thin, nchain = nchain, setSeed = setSeed)
+                     thin = thin, nchain = nchain, setSeed = setSeed,
+                     scale = scale, center = center)
 
     } else if (indexprior == "spike"){
       fit <- bsSpike(formula = formula, data = data,
                      prior = prior, init = init,
                      monitors = monitors, niter = niter, nburnin = nburnin,
-                     thin = thin, nchain = nchain, setSeed = setSeed)
+                     thin = thin, nchain = nchain, setSeed = setSeed,
+                     scale = scale, center = center)
 
     } else{
       stop("Wrong index prior name!")
@@ -109,14 +114,16 @@ BayesSIM <- function(formula, data,
       fit <- gpFisher(formula = formula, data = data,
                       prior = prior, init = init,
                       monitors = monitors, niter = niter, nburnin = nburnin,
-                      thin = thin, nchain = nchain, setSeed = setSeed)
+                      thin = thin, nchain = nchain, setSeed = setSeed,
+                      scale = scale, center = center)
 
     } else if (indexprior == "sphere"){
       fit <- gpSphere(formula = formula, data = data,
                       prior = prior, init = init,
                       method = method, lowerB = lowerB, upperB = upperB,
                       monitors = monitors, niter = niter, nburnin = nburnin,
-                      thin = thin, nchain = nchain, setSeed = setSeed)
+                      thin = thin, nchain = nchain, setSeed = setSeed,
+                      scale = scale, center = center)
 
     } else if (indexprior == "polar"){
       if (!is.data.frame(data)){
@@ -162,18 +169,21 @@ BayesSIM <- function(formula, data,
         fit <- gpPolarHigh(formula = formula, data = data,
                            prior = prior, init = init,
                            monitors = monitors, niter = niter, nburnin = nburnin,
-                           thin = thin, nchain = nchain, setSeed = setSeed)
+                           thin = thin, nchain = nchain, setSeed = setSeed,
+                           scale = scale, center = center)
       } else{
         fit <- gpPolar(formula = formula, data = data,
                        prior = prior, init = init,
                        monitors = monitors, niter = niter, nburnin = nburnin,
-                       thin = thin, nchain = nchain, setSeed = setSeed)
+                       thin = thin, nchain = nchain, setSeed = setSeed,
+                       scale = scale, center = center)
       }
     } else if (indexprior == "spike"){
       fit <- gpSpike(formula = formula, data = data,
                      prior = prior, init = init,
                      monitors = monitors, niter = niter, nburnin = nburnin,
-                     thin = thin, nchain = nchain, setSeed = setSeed)
+                     thin = thin, nchain = nchain, setSeed = setSeed,
+                     scale = scale, center = center)
 
     } else{
       stop("Wrong index prior name!")
@@ -194,7 +204,8 @@ BayesSIM_setup <- function(formula, data,
                      method = "FB",
                      lowerB = NULL, upperB = NULL,
                      monitors = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, nchain = 1, setSeed = FALSE){
+                     thin = 1, nchain = 1, setSeed = FALSE,
+                     scale = FALSE, center = FALSE){
   # modifyList <- 0
   # prior_list <- 0; init_list <- 0
 
@@ -204,25 +215,29 @@ BayesSIM_setup <- function(formula, data,
       fit <- bsFisher_setup(formula = formula, data = data,
                             prior = prior, init = init,
                             monitors, niter, nburnin,
-                            thin, nchain, setSeed)
+                            thin, nchain, setSeed,
+                            scale = scale, center = center)
 
     } else if (indexprior == "sphere"){
       fit <- bsSphere_setup(formula = formula, data = data,
                             prior = prior, init = init,
                             monitors, niter, nburnin,
-                            thin, nchain, setSeed)
+                            thin, nchain, setSeed,
+                            scale = scale, center = center)
 
     } else if (indexprior == "polar"){
       fit <- bsPolar_setup(formula = formula, data = data,
                            prior = prior, init = init,
                            monitors, niter, nburnin,
-                           thin, nchain, setSeed)
+                           thin, nchain, setSeed,
+                           scale = scale, center = center)
 
     } else if (indexprior == "spike"){
       fit <- bsSpike_setup(formula = formula, data = data,
                            prior = prior, init = init,
                            monitors, niter, nburnin,
-                           thin, nchain, setSeed)
+                           thin, nchain, setSeed,
+                           scale = scale, center = center)
 
     } else{
       stop("Wrong index prior name!")
@@ -233,14 +248,16 @@ BayesSIM_setup <- function(formula, data,
       fit <- gpFisher_setup(formula = formula, data = data,
                             prior = prior, init = init,
                             monitors, niter, nburnin,
-                            thin, nchain, setSeed)
+                            thin, nchain, setSeed,
+                            scale = scale, center = center)
 
     } else if (indexprior == "sphere"){
       fit <- gpSphere_setup(formula = formula, data = data,
                             prior = prior, init = init,
                             method, lowerB, upperB,
                             monitors, niter, nburnin,
-                            thin, nchain, setSeed)
+                            thin, nchain, setSeed,
+                            scale = scale, center = center)
 
     } else if (indexprior == "polar"){
       if (!is.data.frame(data)){
@@ -287,18 +304,21 @@ BayesSIM_setup <- function(formula, data,
         fit <- gpPolarHigh_setup(formula = formula, data = data,
                                  prior = prior, init = init,
                                  monitors, niter, nburnin,
-                                 thin, nchain, setSeed)
+                                 thin, nchain, setSeed,
+                                 scale = scale, center = center)
       } else{
         fit <- gpPolar_setup(formula = formula, data = data,
                              prior = prior, init = init,
                              monitors, niter, nburnin,
-                             thin, nchain, setSeed)
+                             thin, nchain, setSeed,
+                             scale = scale, center = center)
       }
     } else if (indexprior == "spike"){
       fit <- gpSpike_setup(formula = formula, data = data,
                            prior = prior, init = init,
                            monitors, niter, nburnin,
-                           thin, nchain, setSeed)
+                           thin, nchain, setSeed,
+                           scale = scale, center = center)
 
     } else{
       stop("Wrong index prior name!")

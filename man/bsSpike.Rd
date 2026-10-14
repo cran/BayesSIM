@@ -15,7 +15,9 @@ bsSpike(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 bsSpike_setup(
@@ -28,7 +30,9 @@ bsSpike_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 }
 \arguments{
@@ -53,6 +57,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
+
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
 }
 \value{
 A \code{list} typically containing:
@@ -90,13 +98,12 @@ inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where 
 \eqn{r_1, r_2} are shape and rate parameter of beta distribution.
 \item Slab coefficients \eqn{\theta} have normal distribution with zero mean and \eqn{\sigma_\theta^2} variance.
 \item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
-normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
-covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
+multivariate normal distribution with mean \eqn{\boldsymbol{\mu_\beta}}, and covariance \eqn{\sigma^2\tau\Sigma_0}.
 \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 }
 
 \strong{Sampling}
-Samplers are automatically assigned by nimble.
+All samplers are automatically assigned by nimble.
 
 \strong{Prior hyper-parameters}
 These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
@@ -106,7 +113,9 @@ For slab prior, normal distribution with zero mean is assigned for selected vari
 \item Link function: B-spline basis and coefficient of B-spline setup.
 \itemize{
 \item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
-\item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
+\item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean (\eqn{\boldsymbol{\mu_\beta}}) \code{link_beta_mu}, covariance (\eqn{\Sigma_0}) \code{link_beta_Sigma0},
+scale parameter (\eqn{\tau}) \code{link_beta_tau}.
+By default, By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
 }
 \item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
 where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
@@ -128,6 +137,9 @@ where \eqn{X_{\theta}} is the B-spline basis design matrix.
 \item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
 
 }
+
+\strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 }
 \examples{
 \donttest{
@@ -144,17 +156,17 @@ colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
 fit1 <- bsSpike(y ~ ., data = simdata,
-                niter = 5000, nburnin = 1000, nchain = 1)
+                niter = 10000, nburnin = 3000, nchain = 1)
 
 # Split version
 models <- bsSpike_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 3000, thin = 1,
                    nchains = 1, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 }
 

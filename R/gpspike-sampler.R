@@ -95,10 +95,11 @@ SamplingThetaV_gp_spike <- nimbleFunction(
       # newIndex <- newTheta/sqrt(sum(newTheta^2))
 
       # if (sum(newTheta) < 0){
-      if (newTheta[1] < 0){
+      tempTheta <- 0.0; tempTheta <- newTheta[newTheta!=0][1]
+      # tempTheta <- 0; tempTheta <- sum(newTheta)
+      if (tempTheta < 0){
         newTheta <- (-1) * newTheta
       }
-
       model$nu <<- newV
       model$index_raw <<- newTheta
       model$indexstar <<- newTheta
@@ -135,7 +136,8 @@ SamplingThetaV_gp_spike <- nimbleFunction(
       proposalTheta <- rnorm(1, theta_raw[idx], jump)
       newTheta[idx] <- proposalTheta
       # newIndex <- newTheta/sqrt(sum(newTheta^2))
-      if (newTheta[1] < 0){
+      tempTheta <- 0.0; tempTheta <- newTheta[newTheta!=0][1]
+      if (tempTheta < 0){
         newTheta <- (-1) * newTheta
       }
 

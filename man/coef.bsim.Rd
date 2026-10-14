@@ -4,7 +4,13 @@
 \alias{coef.bsim}
 \title{Extract Index Vector Coefficients from \code{BayesSIM}}
 \usage{
-\method{coef}{bsim}(object, method = c("mean", "median"), se = FALSE, ...)
+\method{coef}{bsim}(
+  object,
+  method = c("mean", "median"),
+  error = FALSE,
+  origscale = FALSE,
+  ...
+)
 }
 \arguments{
 \item{object}{A fitted object of \code{BayesSIM} or individual model.}
@@ -12,10 +18,12 @@
 \item{method}{Character string indicating the summary statistic to compute.
 Options are \code{"mean"} or \code{"median"}. Default is \code{"mean"}.}
 
-\item{se}{Logical value whether computing standard error for index estimates.
+\item{error}{Logical value whether computing posterior standard deviation for index estimates.
 If \code{method} is \code{"mean"}, standard deviation of index vector MCMC samples is gained.
 If  \code{method} is \code{"median"}, median absolute deviation of index vector MCMC samples is gained.
 \code{FALSE} is default.}
+
+\item{origscale}{Logical. If \code{origscale} is \code{TRUE}, you can see the index into original scale when you standardized the predictors.}
 
 \item{...}{Additional arguments passed to other methods.}
 }
@@ -33,10 +41,10 @@ simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 
 # 1. One tool version
 fit_one <- BayesSIM(y ~ ., data = simdata2,
-                    niter = 5000, nburnin = 1000, nchain = 1)
+                    niter = 10000, nburnin = 5000, nchain = 2)
 
 # Check median index vector estimates with standard errors
-coef(fit_one, method = "median", se = TRUE)
+coef(fit_one, method = "median", error = TRUE)
 
 # Fitted index values of median prediction
 fitted(fit_one, type = "linpred", method = "median")
@@ -63,16 +71,16 @@ plot(pred)
 
 
 # 2. Split version
-models <- BayesSIM_setup(y ~ ., data = simdata2)
+models <- BayesSIM_setup(y ~ ., data = simdata2, nchain = 2)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                    nchains = 2, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
 
 # "fit_split" becomes exactly the same as the class of "fit_one" object and apply generic functions.
-fit_split <- as_bsim(models, mcmc.out)
+fit_split <- as_bsim(models, mcmc.out, Ccompile)
 
 }
 

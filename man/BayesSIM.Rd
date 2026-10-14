@@ -22,7 +22,9 @@ BayesSIM(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 BayesSIM_setup(
@@ -40,7 +42,9 @@ BayesSIM_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 \method{print}{bsim}(x, digits = 3, ...)
@@ -87,6 +91,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
 
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
+
 \item{x}{A fitted \code{BayesSIM} object.}
 
 \item{digits}{Number of digits to display.}
@@ -131,18 +139,18 @@ colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version - bsFisher
 fit1 <- BayesSIM(y ~ ., data = simdata,
-                 niter = 5000, nburnin = 1000,
-                 nchain = 1)
+                 niter = 10000, nburnin = 5000,
+                 nchain = 2)
 
 # Split version- bsFisher
-models <- BayesSIM_setup(y ~ ., data = simdata)
+models <- BayesSIM_setup(y ~ ., data = simdata, nchain = 2)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                   nchains = 2, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 }
 }

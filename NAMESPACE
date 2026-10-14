@@ -5,6 +5,8 @@ S3method(as.data.frame,bsimPred)
 S3method(as_bsim,bsimSetup)
 S3method(coef,bsim)
 S3method(fitted,bsim)
+S3method(getCModel,bsim)
+S3method(getCSampler,bsim)
 S3method(plot,bsim)
 S3method(plot,bsimPred)
 S3method(plot,bsimSetup)
@@ -32,11 +34,14 @@ export(bsSphere_setup)
 export(bsSpike)
 export(bsSpike_setup)
 export(compileModelAndMCMC)
+export(getCModel)
+export(getCSampler)
 export(getInit)
 export(getModel)
 export(getModelDef)
 export(getSampler)
 export(getVarMonitor)
+export(getWAIC)
 export(gpFisher)
 export(gpFisher_setup)
 export(gpPolar)
@@ -50,40 +55,58 @@ export(gpSpike_setup)
 export(init_param)
 export(nimTraceplot)
 export(prior_param)
+import(coda)
 import(ggplot2)
 import(methods)
 import(nimble)
 import(patchwork)
 importFrom(MASS,mvrnorm)
 importFrom(dplyr,select)
-importFrom(ggplot2,aes)
-importFrom(ggplot2,geom_line)
-importFrom(ggplot2,geom_point)
-importFrom(ggplot2,geom_ribbon)
-importFrom(ggplot2,ggplot)
-importFrom(ggplot2,labs)
-importFrom(ggplot2,theme)
-importFrom(ggplot2,theme_minimal)
+importFrom(ggplot2,
+  aes,
+  geom_line,
+  geom_point,
+  geom_ribbon,
+  ggplot,
+  labs,
+  theme,
+  theme_minimal
+)
+importFrom(loo,waic)
 importFrom(magrittr,"%>%")
 importFrom(mvtnorm,rmvnorm)
-importFrom(stats,dbeta)
-importFrom(stats,dnorm)
-importFrom(stats,knots)
-importFrom(stats,mad)
-importFrom(stats,median)
-importFrom(stats,pnorm)
-importFrom(stats,ppr)
-importFrom(stats,qnorm)
-importFrom(stats,qpois)
-importFrom(stats,quantile)
-importFrom(stats,rbeta)
-importFrom(stats,rbinom)
-importFrom(stats,rgamma)
-importFrom(stats,rnorm)
-importFrom(stats,rpois)
-importFrom(stats,runif)
-importFrom(stats,sd)
-importFrom(tidyr,all_of)
-importFrom(tidyr,pivot_longer)
-importFrom(utils,modifyList)
-importFrom(utils,str)
+importFrom(posterior,
+  as_draws_array,
+  ess_bulk,
+  ess_tail,
+  rhat
+)
+importFrom(stats,
+  complete.cases,
+  dbeta,
+  dnorm,
+  knots,
+  mad,
+  median,
+  na.omit,
+  pnorm,
+  ppr,
+  qnorm,
+  qpois,
+  quantile,
+  rbeta,
+  rbinom,
+  rgamma,
+  rnorm,
+  rpois,
+  runif,
+  sd
+)
+importFrom(tidyr,
+  all_of,
+  pivot_longer
+)
+importFrom(utils,
+  modifyList,
+  str
+)

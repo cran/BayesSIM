@@ -17,7 +17,9 @@ gpPolar(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 gpPolar_setup(
@@ -30,7 +32,9 @@ gpPolar_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 gpPolarHigh(
@@ -43,7 +47,9 @@ gpPolarHigh(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 gpPolarHigh_setup(
@@ -56,7 +62,9 @@ gpPolarHigh_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 }
 \arguments{
@@ -81,6 +89,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
+
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
 }
 \value{
 A \code{list} typically containing:
@@ -122,8 +134,8 @@ The vector is then scaled to unit length.
 Sampling is  performed on the angular parameters \eqn{\theta} defining
 the index vector. The link function \eqn{f(\cdot)} is modeled by a Gaussian process
 prior with zero mean and an Ornstein–Uhlenbeck (OU) covariance kernel
-\eqn{\exp(-\kappa \cdot |t_i - t_j|), i, j = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
-parameter and \eqn{t_i, t_j} is index value (\eqn{t_i = X_i'\theta}).
+\eqn{\exp(-\kappa \cdot |t_i - t_l|), i, l = 1,\ldots, n}, where \eqn{\kappa} is a bandwidth (smoothness)
+parameter and \eqn{t_i, t_l} is index value (\eqn{t_i = X_i'\theta}).
 
 \strong{Priors}
 \itemize{
@@ -162,6 +174,9 @@ These are the initial values set in the function. You can define new values for 
 \item Link function: Initial scalar scale parameter of covariance kernel \code{link_kappa}. (default: \code{2})
 \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
 }
+
+\strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 }
 \examples{
 \donttest{
@@ -215,8 +230,8 @@ mcmc.out1 <- runMCMC(sampler1, niter = 3000, nburnin = 2000, thin = 1,
 mcmc.out2 <- runMCMC(sampler2, niter = 3000, nburnin = 2000, thin = 1,
                     nchains = 1, setSeed = TRUE, init = initList2,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit1_split <- as_bsim(models1, mcmc.out1)
-fit2_split <- as_bsim(models2, mcmc.out2)
+fit1_split <- as_bsim(models1, mcmc.out1, Ccompile1)
+fit2_split <- as_bsim(models2, mcmc.out2, Ccompile2)
 }
 
 }

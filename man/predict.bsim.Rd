@@ -8,10 +8,11 @@
 \method{predict}{bsim}(
   object,
   newdata = NULL,
-  se.fit = FALSE,
+  error.fit = FALSE,
   type = c("response", "latent", "index"),
   method = c("mean", "median"),
   interval = c("none", "credible"),
+  n_draws = NULL,
   level = 0.95,
   ...
 )
@@ -24,8 +25,9 @@
 \item{newdata}{Optional data frame for which predictions should be made.
 If \code{NULL}, predictions are returned for the training data.}
 
-\item{se.fit}{A logical value indicating whether standard errors are required.
-Default is \code{FALSE}.}
+\item{error.fit}{A logical value indicating whether uncertainty is required.
+Default is \code{FALSE}. If \code{method == "mean"}, posterior standard deviation is calculated.
+If \code{method == "median"}, posterior median absolute deviation is calculated.}
 
 \item{type}{Character string specifying the type of prediction. \code{"response"}
 is the default.
@@ -55,6 +57,9 @@ point predictions. Options are \code{"mean"} or \code{"median"}. Default is \cod
 \item{\code{"credible"}}{Return a \eqn{100 \times \text{level}\%} credible interval.}
 }}
 
+\item{n_draws}{Numeric value for designating number of draws for posterior predictive samples.
+If the value is \code{NULL}, function uses all MCMC samples from the fitted model.}
+
 \item{level}{Numeric value between 0 and 1 specifying the credible level.
 \code{level = 0.95} yields a 95\% credible interval. Default is \code{0.95}.}
 
@@ -65,10 +70,11 @@ point predictions. Options are \code{"mean"} or \code{"median"}. Default is \cod
 \value{
 A list containing at least the following components:
 \describe{
-\item{\code{fitted}}{Posterior mean or median predictions. If \code{se.fit = TRUE} or
+\item{\code{fitted}}{Posterior mean or median predictions. If \code{error.fit = TRUE} or
 \code{interval = "credible"}, standard error and lower, upper bounds of the credible interval is also included.}
 \item{\code{truey}}{True response value of test data. When true response value is not available, \code{NULL} is saved.}
 \item{\code{idxValue}}{Linear index value is saved where \eqn{\theta} is estimated by \code{method}.}
+\item{\code{posterior}}{Posterior preditive or MCMC samples for prediction from the model.}
 \item{\code{level}}{Credible level.}
 }
 }
@@ -77,11 +83,11 @@ Generate predictions from a fitted Bayesian single-index model.
 }
 \details{
 This method extracts MCMC posterior samples stored in a BayesSIM object
-and computes posterior summaries of:
+and computes posterior summaries as follows:
 \itemize{
-\item the \strong{posterior predictive response} \eqn{Y \mid X} (type \code{"response"}),
-\item the \strong{latent link function} evaluation \eqn{E(Y \mid X) = f(X'\theta)} (type \code{"latent"}), or
-\item the \strong{single index} \eqn{X'\theta} (type \code{"index"}).
+\item \code{type = "response"}: the \strong{posterior predictive response} \eqn{Y \mid X}
+\item \code{type = "latent"}: the \strong{latent link function} evaluation \eqn{E(Y \mid X) = f(X'\theta)}
+\item \code{type = "index"}: the \strong{single index} \eqn{X'\theta}
 }
 
 The key distinction is that \code{"response"} incorporates the posterior
@@ -103,10 +109,10 @@ simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 
 # 1. One tool version
 fit_one <- BayesSIM(y ~ ., data = simdata2,
-                    niter = 5000, nburnin = 1000, nchain = 1)
+                    niter = 10000, nburnin = 5000, nchain = 2)
 
 # Check median index vector estimates with standard errors
-coef(fit_one, method = "median", se = TRUE)
+coef(fit_one, method = "median", error = TRUE)
 
 # Fitted index values of median prediction
 fitted(fit_one, type = "linpred", method = "median")
@@ -133,16 +139,16 @@ plot(pred)
 
 
 # 2. Split version
-models <- BayesSIM_setup(y ~ ., data = simdata2)
+models <- BayesSIM_setup(y ~ ., data = simdata2, nchain = 2)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                    nchains = 2, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
 
 # "fit_split" becomes exactly the same as the class of "fit_one" object and apply generic functions.
-fit_split <- as_bsim(models, mcmc.out)
+fit_split <- as_bsim(models, mcmc.out, Ccompile)
 
 }
 }

@@ -25,6 +25,7 @@ You can also refer to \code{\link{getModelDef}} to understand the model structur
 Stochastic nodes of the model are recommended to be monitored.
 }
 \examples{
+\donttest{
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 models <- BayesSIM_setup(y ~ ., data = simdata2)
 
@@ -32,6 +33,7 @@ models <- BayesSIM_setup(y ~ ., data = simdata2)
 getVarMonitor(models)
 # Get the list of variables with dimension
 getVarMonitor(models, type = "list")
+}
 
 }
 \seealso{

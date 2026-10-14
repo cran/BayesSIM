@@ -19,13 +19,12 @@
 #'     \eqn{r_1, r_2} are shape and rate parameter of beta distribution.
 #' \item Slab coefficients \eqn{\theta} have normal distribution with zero mean and \eqn{\sigma_\theta^2} variance.
 #' \item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
-#'        normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
-#'        covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
+#'        multivariate normal distribution with mean \eqn{\boldsymbol{\mu_\beta}}, and covariance \eqn{\sigma^2\tau\Sigma_0}.
 #' \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 #' }
 #'
 #' \strong{Sampling}
-#' Samplers are automatically assigned by nimble.
+#' All samplers are automatically assigned by nimble.
 #'
 #' \strong{Prior hyper-parameters}
 #' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
@@ -35,7 +34,9 @@
 #'     \item Link function: B-spline basis and coefficient of B-spline setup.
 #'          \itemize{
 #'          \item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
-#'          \item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}. By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)}}
+#'          \item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean (\eqn{\boldsymbol{\mu_\beta}}) \code{link_beta_mu}, covariance (\eqn{\Sigma_0}) \code{link_beta_Sigma0},
+#'          scale parameter (\eqn{\tau}) \code{link_beta_tau}.
+#'          By default, By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
 #' }
 #'   \item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
 #'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
@@ -58,6 +59,8 @@
 #'
 #' }
 #'
+#'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+#'  In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 #'
 #' @inherit bsFisher return
 #'
@@ -76,17 +79,17 @@
 #'
 #' # One tool version
 #' fit1 <- bsSpike(y ~ ., data = simdata,
-#'                 niter = 5000, nburnin = 1000, nchain = 1)
+#'                 niter = 10000, nburnin = 3000, nchain = 1)
 #'
 #' # Split version
 #' models <- bsSpike_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
 #' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
-#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#' mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 3000, thin = 1,
 #'                    nchains = 1, setSeed = TRUE, inits = initList,
 #'                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' fit2 <- as_bsim(models, mcmc.out)
+#' fit2 <- as_bsim(models, mcmc.out, Ccompile)
 #' summary(fit2)
 #' }
 #'
@@ -107,7 +110,8 @@ bsSpike <- function(formula, data,
                     prior = NULL,
                     init = NULL,
                     monitors = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, nchain = 1, setSeed = FALSE
+                    thin = 1, nchain = 1, setSeed = FALSE,
+                    scale = FALSE, center = FALSE
 ){
   return(
     bsSpike.default(formula = formula, data  = data,
@@ -115,7 +119,8 @@ bsSpike <- function(formula, data,
                     init = init,
                     sampling = TRUE,
                     monitors = monitors, niter = niter, nburnin = nburnin,
-                    thin = thin, nchain = nchain, setSeed = setSeed)
+                    thin = thin, nchain = nchain, setSeed = setSeed,
+                    scale = scale, center = center)
     )
 
 }
@@ -126,14 +131,16 @@ bsSpike_setup <- function(formula, data,
                           prior = NULL,
                           init = NULL,
                           monitors = NULL, niter = 10000, nburnin=1000,
-                          thin = 1, nchain = 1, setSeed = FALSE){
+                          thin = 1, nchain = 1, setSeed = FALSE,
+                          scale = FALSE, center = FALSE){
   return(
     bsSpike.default(formula = formula, data  = data,
                     prior = prior,
                     init = init,
                     sampling = FALSE,
                     monitors = monitors, niter = niter, nburnin = nburnin,
-                    thin = thin, nchain = nchain, setSeed = setSeed)
+                    thin = thin, nchain = nchain, setSeed = setSeed,
+                    scale = scale, center = center)
   )
 }
 
@@ -142,10 +149,11 @@ bsSpike.default <- function(formula, data,
                     init = NULL,
                     sampling = TRUE,
                     monitors = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, nchain = 1, setSeed = FALSE
+                    thin = 1, nchain = 1, setSeed = FALSE,
+                    scale = FALSE, center = FALSE
 ){
   start1 <- Sys.time()
-  index_raw <- 0; nu <- 0
+  index_raw <- 0; nu <- 0; sigma2 <- 0
 
   # check sampling, prior, init parameters for independent execution
   checkOutput <- validate_and_finalize_args(
@@ -156,9 +164,6 @@ bsSpike.default <- function(formula, data,
   init <- checkOutput$initlist_final
 
   # environment
-  envobj <- ls(envir=.GlobalEnv)
-  on.exit(rm(list=ls(envir=.GlobalEnv)[which(!ls(envir=.GlobalEnv)%in%envobj)],envir=.GlobalEnv))
-
   .fns <- c(
     # a_common
     "quickSortOrderIndexOnly", "nimOrder", "nimSort",
@@ -178,362 +183,428 @@ bsSpike.default <- function(formula, data,
     "pred_fitted"
   )
 
-  pkg <- "BayesSIM"
-  ns <- asNamespace(pkg)
-  list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
+  ## snapshots: Find global objects colliding with internal function name
+  colliding <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+  saved <- mget(colliding, envir = .GlobalEnv, inherits = FALSE)
 
+  tryCatch({
+    pkg <- "BayesSIM"
+    ns <- asNamespace(pkg)
+    list2env(mget(.fns, envir = ns, inherits = FALSE), envir = .GlobalEnv)
 
-  # check data dimension
-  # Data
-  if (!is.data.frame(data)){
-    stop("data should be an data.frame.")
-  }
+    # check data dimension
+    # Data
+    if (!is.data.frame(data)){
+      stop("data should be an data.frame.")
+    }
 
-  Call <- match.call()
-  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
-  if (indx[1] == 0L)
-    stop("a 'formula' argument is required")
-  temp <- Call[c(1L,indx)]
-  temp[[1L]] <- quote(stats::model.frame)
-  m <- eval.parent(temp)
-  Terms <- attr(m,"terms")
-  formula <- as.character(formula)
-  response.name <- formula[2]
-  data.name <- strsplit(formula[3]," \\+ ")[[1]]
-  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
-  if(data.name[1]=="."){
-    tot.name <- response.name
-  } else{
-    tot.name <- c(response.name ,data.name)
-  }
-  if(!int.flag){
-    stop("BayesSIM cannot treat interaction terms")
-  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
-           length(tot.name)){
-    stop(paste(paste(tot.name[duplicated(c(colnames(data),
-                                           tot.name))[-c(1:ncol(data))]],collapse=","),
-               " is/are not in your data"))
-  }else{
-    origY <- data[ ,response.name]
+    Call <- match.call()
+    indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+    if (indx[1] == 0L)
+      stop("a 'formula' argument is required")
+    temp <- Call[c(1L,indx)]
+    temp[[1L]] <- quote(stats::model.frame)
+    m <- eval.parent(temp)
+    Terms <- attr(m,"terms")
+    formula <- as.character(formula)
+    response.name <- formula[2]
+    data.name <- strsplit(formula[3]," \\+ ")[[1]]
+    int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
     if(data.name[1]=="."){
-      origX <- data[,colnames(data) != response.name]
-    }else {
-      origX <- data[ ,data.name,drop=FALSE]
+      tot.name <- response.name
+    } else{
+      tot.name <- c(response.name ,data.name)
     }
-  }
-
-  # X = origX, Y = origY
-  X <- as.matrix(origX)
-  Y <- as.matrix(origY)
-
-  # data dimension
-  N <- length(Y)
-  p <- ncol(X)
-
-
-  # Model code
-  Rmodel <- nimbleCode({
-    # thetastar: spike and slab
-    pi ~ dbeta(a0, b0)
-    for (j in 1:p) {
-      nu[j] ~ dbern(pi)
-      index_raw[j] ~ dnorm(0, sd = sigma_theta)
-      index_temp[j] <- index_raw[j] * nu[j] + 1e-10
-    }
-    index[1:p] <- index_temp[1:p]/sqrt(sum(index_temp[1:p]^2))
-
-    # Linear predictor
-    for (i in 1:N){
-      Xlin[i] <- sum(X[i, 1:p] * index[1:p])
+    if(!int.flag){
+      stop("BayesSIM cannot treat interaction terms")
+    }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+             length(tot.name)){
+      stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                             tot.name))[-c(1:ncol(data))]],collapse=","),
+                 " is/are not in your data"))
+    }else{
+      origY <- data[ ,response.name]
+      if(data.name[1]=="."){
+        origX <- data[,colnames(data) != response.name]
+      }else {
+        origX <- data[ ,data.name,drop=FALSE]
+      }
     }
 
-    # Design matrix - b spline basis
-    Xmat[1:N, 1:df] <- transX_fisher(Xlin[1:N], df = df, degree = degree, delta = delta)
+    # Scale the data
+    scaleCenter <- NULL; scaleSD <- NULL
+    if (scale || center){
+      scaleX <- scale(origX, center = center, scale = scale)
+      if (center) scaleCenter <- attr(scaleX, "scaled:center")
+      if (scale) scaleSD <- attr(scaleX, "scaled:scale")
+      X <- as.matrix(scaleX)
+    } else{
+      X <- as.matrix(origX)
+    }
+    Y <- as.matrix(origY)
 
-    # likelihoods
-    sigma2 ~ dinvgamma(a_sig, b_sig)
-    beta[1:df] ~ dmnorm(mubeta[1:df], cov = covbeta[1:df, 1:df])
-    linkFunction[1:N, 1] <- Xmat[1:N, 1:df] %*% matrix(beta[1:df], ncol = 1)
-    for (i in 1:N){
-      Y[i, 1] ~ dnorm(linkFunction[i, 1], var = sigma2)
+    # data dimension
+    N <- length(Y)
+    p <- ncol(X)
+
+
+    # Model code
+    # Rmodel <- nimbleCode({
+    #   # thetastar: spike and slab
+    #   pi ~ dbeta(a0, b0)
+    #   for (j in 1:p) {
+    #     nu[j] ~ dbern(pi)
+    #     index_raw[j] ~ dnorm(0, sd = sigma_theta)
+    #     index_temp[j] <- index_raw[j] * nu[j] + 1e-10
+    #   }
+    #   index[1:p] <- index_temp[1:p]/sqrt(sum(index_temp[1:p]^2))
+    #
+    #   # Linear predictor
+    #   for (i in 1:N){
+    #     Xlin[i] <- sum(X[i, 1:p] * index[1:p])
+    #   }
+    #
+    #   # Design matrix - b spline basis
+    #   Xmat[1:N, 1:df] <- transX_fisher(Xlin[1:N], df = df, degree = degree, delta = delta)
+    #
+    #   # likelihoods
+    #   sigma2 ~ dinvgamma(a_sig, b_sig)
+    #   beta[1:df, 1] ~ dmnorm(mubeta[1:df], cov = covbeta[1:df, 1:df])
+    #   linkFunction[1:N, 1] <- Xmat[1:N, 1:df] %*% beta[1:df, 1]
+    #   for (i in 1:N){
+    #     Y[i, 1] ~ dnorm(linkFunction[i, 1], var = sigma2)
+    #   }
+    #
+    # })
+
+    Rmodel <- nimbleCode({
+      # thetastar: spike and slab
+      pi ~ dbeta(a0, b0)
+      for (j in 1:p) {
+        nu[j] ~ dbern(pi)
+        index_raw[j] ~ dnorm(0, sd = sigma_theta)
+        index_temp[j] <- index_raw[j] * nu[j] + 1e-10
+      }
+      index[1:p] <- index_temp[1:p]/sqrt(sum(index_temp[1:p]^2))
+
+      # Linear predictor
+      for (i in 1:N){
+        Xlin[i] <- sum(X[i, 1:p] * index[1:p])
+      }
+
+      # Design matrix - b spline basis
+      Xmat[1:N, 1:df] <- transX_fisher(Xlin[1:N], df = df, degree = degree, delta = delta)
+
+      # likelihoods
+      sigma2 ~ dinvgamma(a_sig, b_sig)
+      covBeta[1:df, 1:df] <- covbeta[1:df, 1:df] * sigma2 * tau
+      beta[1:df, 1] ~ dmnorm(mubeta[1:df], cov = covBeta[1:df, 1:df])
+      linkFunction[1:N, 1] <- Xmat[1:N, 1:df] %*% beta[1:df, 1]
+      for (i in 1:N){
+        Y[i, 1] ~ dnorm(linkFunction[i, 1], var = sigma2)
+      }
+
+    })
+
+    # Prior parameters
+    ## check data dimension and save
+    ## index: theta
+    if (is.null(prior$index$nu$r1)||
+        length(prior$index$nu$r1) >= 2 ||
+        prior$index$nu$r1 < 0){
+      stop("Prior index (r1) has incorrect value.")
+    } else{
+      a0 <- prior$index$nu$r1
     }
 
+    if (is.null(prior$index$nu$r2)||
+        length(prior$index$nu$r2) >= 2 ||
+        prior$index$nu$r2 < 0){
+      stop("Prior index (r2) has incorrect value.")
+    } else{
+      b0 <- prior$index$nu$r2
+    }
+
+    if (is.null(prior$index$sigma_theta)||
+        length(prior$index$sigma_theta) >= 2 ||
+        prior$index$sigma_theta < 0){
+      stop("Prior index (sigma_theta) has incorrect value.")
+    } else{
+      sigma_theta <- prior$index$sigma_theta
+    }
+
+    ## link- basis
+    if (is.null(prior$link$basis$df)||length(prior$link$basis$df) >= 2 || prior$link$basis$df< 0){
+      stop("Prior bspline (df) has incorrect value.")
+    } else{
+      df <- prior$link$basis$df
+    }
+
+    if (is.null(prior$link$basis$degree)||length(prior$link$basis$degree) >= 2 || prior$link$basis$degree< 0){
+      stop("Error: Prior bspline (degree) has incorrect value.")
+    } else{
+      degree <- prior$link$basis$degree
+    }
+
+    if (is.null(prior$link$basis$delta)||length(prior$link$basis$delta) >= 2 || prior$link$basis$delta< 0){
+      stop("Prior bspline (delta) has incorrect value.")
+    } else{
+      delta <- prior$link$basis$delta
+    }
+
+    ## link - beta
+    if (!is.vector(prior$link$beta$mu) & !is.null(prior$link$beta$mu)){
+      stop("Prior beta (mu) should be vector.")
+    }
+    if (!is.null(prior$link$beta$mu) & length(prior$link$beta$mu) != (df)){
+      stop("Incorrect dimension on prior beta (mu).")
+    }
+
+    if (is.null(prior$link$beta$mu)){
+      mubeta <- rep(0, df)
+    } else{
+      mubeta <- prior$link$beta$mu
+    }
+
+    if (!is.null(prior$link$beta$Sigma0) & !is.matrix(prior$link$beta$Sigma0)){
+      stop("Prior beta (Sigma0) should be matrix.")
+    }
+
+    if (is.null(prior$link$beta$Sigma0)){
+      covbeta <- diag(df)
+    } else{
+      covbeta <- prior$link$beta$Sigma0
+    }
+
+    ## tau
+    tau <- ifelse(is.null(prior$link$beta$tau), N, prior$link$beta$tau)
+    if (length(tau) >= 2 || tau < 0){
+      stop("Prior beta (tau) has incorrect value.")
+    }
+
+    ## sigma2
+    if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
+      stop("Prior sigma2 (shape) has incorrect value.")
+    } else{
+      a_sig <- prior$sigma2$shape
+    }
+
+    if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
+      stop("Prior sigma2 (rate) has incorrect value.")
+    } else{
+      b_sig <- prior$sigma2$rate
+    }
+
+    # Initialize
+    ## sigma2
+    init_sigma2 <- init$sigma2
+    if (length(init$sigma2) >= 2 || !is.numeric(init$sigma2)){
+      stop("Initial value of sigma2 should be scalar.")
+    }
+    if (init$sigma2 < 0){
+      stop("Initial value of sigma2 should be positive.")
+    }
+
+    ## beta
+    if (!is.null(init$link$beta) & length(init$link$beta) != df){
+      stop("Incorrect dimention on initial value of beta.")
+    }
+
+    # seed
+    seedNum <- rep(FALSE, nchain)
+    seedNum <- rep(FALSE, nchain)
+
+    if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+      stop("'setSeed' must be logical or numeric.")
+    }
+
+    if (is.logical(setSeed)) {
+
+      if (length(setSeed) != 1) {
+        stop("If 'setSeed' is logical, it must be length 1.")
+      }
+
+      if (setSeed) {
+        seedNum <- seq_len(nchain)
+      } else {
+        seedNum <- rep(FALSE, nchain)
+      }
+    }
+
+    if (is.numeric(setSeed)) {
+
+      if (length(setSeed) == 1) {
+        seedNum <- rep(setSeed, nchain)
+
+      } else if (length(setSeed) == nchain) {
+        seedNum <- setSeed
+
+      } else {
+        stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
+      }
+    }
+
+
+
+
+    inits_list <- lapply(seq_len(nchain), function(j) initFunction_bSpike(X = X, Y = Y,
+                                                                          pi = init$index$pi, nu = init$index$nu,
+                                                                          index = init$index$index,
+                                                                          sigma2 = init$sigma2,
+                                                                          beta = init$link$beta,
+                                                                          df = df, degree = degree, delta = delta,
+                                                                          setSeed = seedNum[j]))
+    firstInit <- inits_list[[1]]
+
+    # Build model
+    message("== Building model ==")
+    suppressMessages(simpleModel <- nimbleModel(Rmodel,
+                                                data = list(X = X, Y = Y),
+                                                constants = list(p = p, N = N,
+                                                                 a0 = a0, b0 = b0, sigma_theta = sigma_theta,
+                                                                 a_sig = a_sig, b_sig = b_sig,
+                                                                 df = df, degree = degree,
+                                                                 delta = delta, mubeta = mubeta, covbeta = covbeta,
+                                                                 tau = tau),
+                                                inits = firstInit))
+
+    # Assign samplers
+    message("== Assigning samplers ==")
+    monitorsList <- c("nu", "index", "sigma2", "linkFunction", "Xlin", "beta", "index_raw", "pi")
+    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                               monitors = monitorsList,
+                                               print = FALSE))
+
+    # mcmcConf$removeSamplers(c("beta"))
+    # mcmcConf$addSampler(target = c("beta"),
+    #                     type   = "betaSampler_bspline_fisher")
+
+    # mcmcConf$setSamplerExecutionOrder(c(1, 2, 3, 5, 6, 7, 8, 4))
+    # c(1, 2:(p+1),(p+2), (p+3):(2p+2), (2p+3))
+    # mcmcConf$setSamplerExecutionOrder(c(1, (p+3):(2*p+2), 2:(p+1), (2*p+3), (p+2)))
+    mcmcConf$setSamplerExecutionOrder(c(1, (p+3):(2*p+2), 2:(p+1), (2*p+3), (p+2)))
+    mcmc1 <- buildMCMC(mcmcConf)
+
+
+    if (!sampling){
+      mcmc.out <- NULL
+      sampMCMC <- NULL
+      samples <- NULL
+
+    } else{
+      start2 <- Sys.time()
+      # Compile
+      message("== Compiling model ==")
+      suppressMessages(CsimpleModel <- compileNimble(simpleModel))
+      message("== Compiling samplers ==")
+      suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
+                                              resetFunctions = TRUE))
+      end2 <- Sys.time()
+
+      # Sampling
+      message("== Running MCMC ==")
+      mcmc.out <- NULL
+      if (is.logical(setSeed)) {
+        seedNum <- setSeed
+      }
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin,
+                          nchains = nchain, setSeed = seedNum,
+                          inits = inits_list,
+                          summary = FALSE, samplesAsCodaMCMC = TRUE)
+
+      # output
+      ## combine all chains
+      sampMCMC <- mcmc.out
+      samples <- sampleBind(sampMCMC, nchain)
+
+      # if (fitted){ # posterior fitted value output (mean, median, sd)
+      #   message("Compute posterior fitted value")
+      #   # namesBeta <- paste0("index", 1:p)
+      #   namesLink <- paste0("linkFunction[", 1:N, ", 1]")
+      #   namesSigma <- "sigma2"
+      #   LinkFunction_samples <- samples[, namesLink]
+      #   sigma2_samples <- samples[, namesSigma]
+      #   n <- nrow(LinkFunction_samples)
+      #   p <- ncol(LinkFunction_samples)
+      #
+      #   message("Compile function..")
+      #   suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
+      #   message("Computing predicted value..")
+      #   fittedValue <- cpred_fitted(LinkFunction_samples,
+      #                                sigma2_samples)
+      #   fittedResult <- fittedValue
+      #
+      # } else{
+      #   fittedResult <- NULL
+      # }
+
+    }
+    end1 <- Sys.time()
+
+    ## Input options 정리
+    if (!sampling){
+      time <- NULL
+    } else{
+      # total time - compile time
+      time_wo_compile <- difftime(end1, start1, units = "secs") -
+        difftime(end2, start2, units = "secs")
+
+      time <- list(time_wo_compile = time_wo_compile)
+
+    }
+
+    # Results ------------------------------------------------------------------
+    #Model point estimation
+    modelESTLIST <- bsimFit_pointest(samples, X, Y)
+    inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
+                         prior = list(index = list(nu = list(r1 = a0, r2 = b0),sigma_theta = sigma_theta),
+                                      link = list(basis = list(df = df, degree = degree, delta = delta),
+                                                  beta = list(mu = mubeta, cov = covbeta)),
+                                      sigma2 = list(shape = a_sig, rate = b_sig)),
+                         init = inits_list,
+                         samplingOptions = list(sampling = sampling,
+                                                monitors = monitors, niter = niter,
+                                                nburnin = nburnin, thin = thin,
+                                                nchain = nchain, setSeed = setSeed),
+                         scaling = list(scale = scale, center = center,
+                                        scaleCenter = scaleCenter, scaleSD = scaleSD),
+                         time = time)
+
+    if (sampling){
+      out <- list(coefficients = modelESTLIST$coefficients,
+                  ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                  residuals = modelESTLIST$residuals,
+                  fitted.values = modelESTLIST$fitted.values,
+                  linear.predictors = modelESTLIST$linear.predictors,
+                  gof = modelESTLIST$gof,
+                  samples = sampMCMC, # return of runMCMC
+                  input = inputOptions,
+                  defModel = simpleModel, defSampler = mcmc1,
+                  defCModel = CsimpleModel, defCSampler = Cmcmc,
+                  modelName = "bsSpike")
+
+      class(out) <- "bsim"
+
+
+    } else{
+      out <- list(input = inputOptions,
+                  defModel = simpleModel,
+                  defSampler = mcmc1,
+                  modelName = "bsSpike")
+
+      class(out) <- "bsimSetup"
+
+    }
+    return(out)
+
+  }, finally = {
+    present <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+    if (length(present)) rm(list = present, envir = .GlobalEnv)
+    if (length(saved))  list2env(saved, envir = .GlobalEnv)
   })
 
-  # Prior parameters
-  ## check data dimension and save
-  ## index: theta
-  if (is.null(prior$index$nu$r1)||
-      length(prior$index$nu$r1) >= 2 ||
-      prior$index$nu$r1 < 0){
-    stop("Prior index (r1) has incorrect value.")
-  } else{
-    a0 <- prior$index$nu$r1
-  }
 
-  if (is.null(prior$index$nu$r2)||
-      length(prior$index$nu$r2) >= 2 ||
-      prior$index$nu$r2 < 0){
-    stop("Prior index (r2) has incorrect value.")
-  } else{
-    b0 <- prior$index$nu$r2
-  }
-
-  if (is.null(prior$index$sigma_theta)||
-      length(prior$index$sigma_theta) >= 2 ||
-      prior$index$sigma_theta < 0){
-    stop("Prior index (sigma_theta) has incorrect value.")
-  } else{
-    sigma_theta <- prior$index$sigma_theta
-  }
-
-  ## link- basis
-  if (is.null(prior$link$basis$df)||length(prior$link$basis$df) >= 2 || prior$link$basis$df< 0){
-    stop("Prior bspline (df) has incorrect value.")
-  } else{
-    df <- prior$link$basis$df
-  }
-
-  if (is.null(prior$link$basis$degree)||length(prior$link$basis$degree) >= 2 || prior$link$basis$degree< 0){
-    stop("Error: Prior bspline (degree) has incorrect value.")
-  } else{
-    degree <- prior$link$basis$degree
-  }
-
-  if (is.null(prior$link$basis$delta)||length(prior$link$basis$delta) >= 2 || prior$link$basis$delta< 0){
-    stop("Prior bspline (delta) has incorrect value.")
-  } else{
-    delta <- prior$link$basis$delta
-  }
-
-  ## link - beta
-  if (is.null(prior$link$beta$mu)){
-    mubeta <- rep(0, df)
-  }
-
-  if (!is.vector(prior$link$beta$mu) & !is.null(prior$link$beta$mu)){
-    stop("Prior beta (mu) should be vector.")
-  }
-  if (!is.null(prior$link$beta$mu) & length(prior$link$beta$mu) != (df)){
-    stop("Incorrect dimension on prior beta (mu).")
-  }
-
-  if (is.null(prior$link$beta$cov)){
-    covbeta <- diag(df)
-  }
-  if (!is.null(prior$link$beta$cov) & !is.matrix(prior$link$beta$cov)){
-    stop("Prior beta (cov) should be matrix.")
-  }
-
-  ## sigma2
-  if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
-    stop("Prior sigma2 (shape) has incorrect value.")
-  } else{
-    a_sig <- prior$sigma2$shape
-  }
-
-  if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
-    stop("Prior sigma2 (rate) has incorrect value.")
-  } else{
-    b_sig <- prior$sigma2$rate
-  }
-
-  # Initialize
-  ## sigma2
-  init_sigma2 <- init$sigma2
-  if (length(init$sigma2) >= 2 || !is.numeric(init$sigma2)){
-    stop("Initial value of sigma2 should be scalar.")
-  }
-  if (init$sigma2 < 0){
-    stop("Initial value of sigma2 should be positive.")
-  }
-
-  ## beta
-  if (!is.null(init$link$beta) & length(init$link$beta) != df){
-    stop("Incorrect dimention on initial value of beta.")
-  }
-
-  # seed
-  seedNum <- rep(FALSE, nchain)
-  seedNum <- rep(FALSE, nchain)
-
-  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
-    stop("'setSeed' must be logical or numeric.")
-  }
-
-  if (is.logical(setSeed)) {
-
-    if (length(setSeed) != 1) {
-      stop("If 'setSeed' is logical, it must be length 1.")
-    }
-
-    if (setSeed) {
-      seedNum <- seq_len(nchain)
-    } else {
-      seedNum <- rep(FALSE, nchain)
-    }
-  }
-
-  if (is.numeric(setSeed)) {
-
-    if (length(setSeed) == 1) {
-      seedNum <- rep(setSeed, nchain)
-
-    } else if (length(setSeed) == nchain) {
-      seedNum <- setSeed
-
-    } else {
-      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
-    }
-  }
-
-
-
-
-  inits_list <- lapply(seq_len(nchain), function(j) initFunction_bSpike(X = X, Y = Y,
-                                                                        pi = init$index$pi, nu = init$index$nu,
-                                                                        index = init$index$index,
-                                                                        sigma2 = init$sigma2,
-                                                                        beta = init$link$beta,
-                                                                        df = df, degree = degree, delta = delta,
-                                                                        setSeed = seedNum[j]))
-  firstInit <- inits_list[[1]]
-
-  # Build model
-  message("== Building model ==")
-  suppressMessages(simpleModel <- nimbleModel(Rmodel,
-                             data = list(X = X, Y = Y),
-                             constants = list(p = p, N = N,
-                                              a0 = a0, b0 = b0, sigma_theta = sigma_theta,
-                                              a_sig = a_sig, b_sig = b_sig,
-                                              df = df, degree = degree,
-                                              delta = delta, mubeta = mubeta, covbeta = covbeta),
-                             inits = firstInit))
-
-  # Assign samplers
-  message("== Assigning samplers ==")
-  monitorsList <- c("nu", "index", "sigma2", "linkFunction", "Xlin", "beta", "index_raw", "pi")
-  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                                             monitors = monitorsList,
-                                             print = FALSE))
-
-  mcmcConf$removeSamplers(c("beta"))
-  mcmcConf$addSampler(target = c("beta"),
-                      type   = "betaSampler_bspline_fisher")
-
-  # mcmcConf$setSamplerExecutionOrder(c(1, 2, 3, 5, 6, 7, 8, 4))
-  # c(1, 2:(p+1),(p+2), (p+3):(2p+2), (2p+3))
-  mcmcConf$setSamplerExecutionOrder(c(1, (p+3):(2*p+2), 2:(p+1), (2*p+3), (p+2)))
-
-  mcmc1 <- buildMCMC(mcmcConf)
-
-
-  if (!sampling){
-    mcmc.out <- NULL
-    sampMCMC <- NULL
-    samples <- NULL
-
-  } else{
-    start2 <- Sys.time()
-    # Compile
-    message("== Compiling model ==")
-    suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compiling samplers ==")
-    suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
-                           resetFunctions = TRUE))
-    end2 <- Sys.time()
-
-    # Sampling
-    message("== Running MCMC ==")
-    mcmc.out <- NULL
-    if (is.logical(setSeed)) {
-      seedNum <- setSeed
-    }
-    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                        thin = thin,
-                        nchains = nchain, setSeed = seedNum,
-                        inits = inits_list,
-                        summary = FALSE, samplesAsCodaMCMC = TRUE)
-
-    # output
-    ## combine all chains
-    sampMCMC <- mcmc.out
-    samples <- sampleBind(sampMCMC, nchain)
-
-    # if (fitted){ # posterior fitted value output (mean, median, sd)
-    #   message("Compute posterior fitted value")
-    #   # namesBeta <- paste0("index", 1:p)
-    #   namesLink <- paste0("linkFunction[", 1:N, ", 1]")
-    #   namesSigma <- "sigma2"
-    #   LinkFunction_samples <- samples[, namesLink]
-    #   sigma2_samples <- samples[, namesSigma]
-    #   n <- nrow(LinkFunction_samples)
-    #   p <- ncol(LinkFunction_samples)
-    #
-    #   message("Compile function..")
-    #   suppressMessages(cpred_fitted <- compileNimble(pred_fitted))
-    #   message("Computing predicted value..")
-    #   fittedValue <- cpred_fitted(LinkFunction_samples,
-    #                                sigma2_samples)
-    #   fittedResult <- fittedValue
-    #
-    # } else{
-    #   fittedResult <- NULL
-    # }
-
-  }
-  end1 <- Sys.time()
-
-  ## Input options 정리
-  if (!sampling){
-    time <- NULL
-  } else{
-    # total time - compile time
-    time_wo_compile <- difftime(end1, start1, units = "secs") -
-      difftime(end2, start2, units = "secs")
-
-    time <- list(time_wo_compile = time_wo_compile)
-
-  }
-
-  # Results ------------------------------------------------------------------
-  #Model point estimation
-  modelESTLIST <- bsimFit_pointest(samples, X, Y)
-  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
-                       prior = list(index = list(nu = list(r1 = a0, r2 = b0),sigma_theta = sigma_theta),
-                                    link = list(basis = list(df = df, degree = degree, delta = delta),
-                                                beta = list(mu = mubeta, cov = covbeta)),
-                                    sigma2 = list(shape = a_sig, rate = b_sig)),
-                       init = inits_list,
-                       samplingOptions = list(sampling = sampling,
-                                              monitors = monitors, niter = niter,
-                                              nburnin = nburnin, thin = thin,
-                                              nchain = nchain, setSeed = setSeed),
-                       time = time)
-
-  if (sampling){
-    out <- list(coefficients = modelESTLIST$coefficients,
-                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
-                residuals = modelESTLIST$residuals,
-                fitted.values = modelESTLIST$fitted.values,
-                linear.predictors = modelESTLIST$linear.predictors,
-                gof = modelESTLIST$gof,
-                samples = sampMCMC, # return of runMCMC
-                input = inputOptions,
-                defModel = simpleModel, defSampler = mcmc1,
-                modelName = "bsSpike")
-
-    class(out) <- "bsim"
-
-
-  } else{
-    out <- list(input = inputOptions,
-                defModel = simpleModel,
-                defSampler = mcmc1,
-                modelName = "bsSpike")
-
-    class(out) <- "bsimSetup"
-
-  }
-  return(out)
 }

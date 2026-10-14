@@ -273,9 +273,9 @@ initFunction_bF <- function(X, Y,
 
   # beta
   if (is.null(beta)){
-    init_beta <- estBeta_fisher(init_Xmat, Y, init_rho)
+    init_beta <- matrix(estBeta_fisher(init_Xmat, Y, init_rho), ncol = 1)
   } else{
-    init_beta <- beta
+    init_beta <- matrix(beta, ncol = 1)
   }
   init_linkFunction <- init_Xmat %*%  init_beta
 

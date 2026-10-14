@@ -23,9 +23,9 @@ standard error, credible interval of each data point in data.frame.
 data("DATA1")
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 fit_one  <- BayesSIM(y ~ ., data = simdata2,
-                    niter = 5000, nburnin = 1000, nchain = 1)
+                    niter = 10000, nburnin = 5000, nchain = 2)
 
-pred <- predict(fit_one, se.fit = TRUE, interval = "credible",level = 0.8)
+pred <- predict(fit_one, error.fit = TRUE, interval = "credible",level = 0.8)
 results <- as.data.frame(pred)
 summary(results)
 }

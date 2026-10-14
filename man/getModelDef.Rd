@@ -31,10 +31,12 @@ There are several functions used in the model definition.
 }
 }
 \examples{
+\donttest{
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 models <- bsFisher_setup(y ~ ., data = simdata2)
 # Get model definition
 getModelDef(models)
+}
 
 }
 \seealso{

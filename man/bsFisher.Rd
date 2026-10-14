@@ -15,7 +15,9 @@ bsFisher(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 bsFisher_setup(
@@ -28,7 +30,9 @@ bsFisher_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 }
 \arguments{
@@ -53,6 +57,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
+
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
 }
 \value{
 A \code{list} typically containing:
@@ -86,13 +94,16 @@ and \eqn{b_{\theta} = max(t_i, i = 1,\cdots, n) + \delta}.
 \itemize{
 \item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
 \item Conditioned on \eqn{\theta} and \eqn{\sigma^2}, the link coefficients \eqn{\beta = (\beta_1,\ldots,\beta_{m+k})^\top} follow
-normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta})^{-1}X_{\theta}'Y} and
+normal distribution with estimated mean vector \eqn{\hat{\beta}_{\theta} = (X_{\theta}'X_{\theta} + \rho \boldsymbol{I})^{-1}X_{\theta}'Y} and
 covariance \eqn{\sigma^2 (X_{\theta}^\top X_{\theta})^{-1}}, where \eqn{X_{\theta}} is the B-spline basis design matrix.
 \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 }
 
 \strong{Sampling}
-Random walk metropolis algorithm is used for index vector \eqn{\theta}. Given \eqn{\theta}, \eqn{\sigma^2} and \eqn{\beta} are sampled from posterior distribution. Further sampling method is described in Antoniadis et al(2004).
+Random walk metropolis algorithm is used for index vector \eqn{\theta}.
+Given \eqn{\theta}, \eqn{\sigma^2} is sampled from posterior distribution.
+Given \eqn{\theta, \sigma^2}, \eqn{\beta} is estimated using the penalized least squares estimator rather than sampled from its posterior distribution.
+Further sampling method is described in Antoniadis et al. (2004).
 
 \strong{Prior hyper-parameters}
 These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
@@ -107,8 +118,8 @@ By default, the estimated vector from projection pursuit regression is assigned.
 \item \code{basis}: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}),
 \code{link_basis_degree} is the spline degree (default \code{2}) and
 \code{link_basis_delta} is a small jitter for boundary knots spacing control (default \code{0.001}).
-\item \code{beta}: For the coefficient of B-spline, multivariate normal prior is assigned with mean \code{link_beta_mu}, and covariance \code{link_beta_cov}.
-By default, \eqn{\mathcal{N}_p\!\big(0, \mathrm{I}_p\big)} is assigned.
+\item \code{beta}: For the B-spline coefficients, a multivariate normal distribution with a zero mean vector and identity covariance matrix is specified in NIMBLE as a reference prior.
+The actual sampling, however, is performed using the prior specified above, as described in the paper.
 }
 
 \item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
@@ -126,6 +137,9 @@ where \eqn{X_{\theta}} is the B-spline basis design matrix.
 
 \item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
 }
+
+\strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 }
 \examples{
 \donttest{
@@ -142,17 +156,17 @@ colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
 fit1 <- bsFisher(y ~ ., data = simdata,
-                 niter = 5000, nburnin = 1000, nchain = 1)
+                 niter = 10000, nburnin = 5000, nchain = 3)
 
 # Split version
-models <- bsFisher_setup(y ~ ., data = simdata)
+models <- bsFisher_setup(y ~ ., data = simdata, nchain = 3)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                   nchains = 3, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 
 

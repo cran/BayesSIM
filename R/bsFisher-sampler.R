@@ -46,11 +46,12 @@ betaSampler_bspline_fisher <- nimble::nimbleFunction(
     Xmat <- model$Xmat
     temp <- nimDim(Xmat)[2]
     sigma2 <- model$sigma2
-    cov <- chol(inverse(t(Xmat) %*% Xmat) *
-                  nimMatrix(sigma2, ncol = temp, nrow = temp))
-    betasamp <- rmnorm_chol(n = 1, mean = estBeta_fisher(Xmat, Y, rho),
-                           cholesky = cov, prec_param = FALSE)
-    model$beta <<- betasamp
+    # cov <- chol(inverse(t(Xmat) %*% Xmat) *
+    #               nimMatrix(sigma2, ncol = temp, nrow = temp))
+    # betasamp <- rmnorm_chol(n = 1, mean = estBeta_fisher(Xmat, Y, rho),
+    #                        cholesky = cov, prec_param = FALSE)
+    # model$beta <<- betasamp
+    model$beta <<- nimMatrix(estBeta_fisher(Xmat, Y, rho), ncol = 1)
 
     model$calculate(calcNodes)
     nimCopy(from = model, to = mvSaved, row = 1,
@@ -66,18 +67,19 @@ sigma2Sampler_bspline_fisher <-  nimble::nimbleFunction(
   setup = function(model, mvSaved, target, control) {
     calcNodes <- model$getDependencies(target)
     N <- model$getConstants()$N
-    Y <- model$Y[,1]
+    # Y <- model$Y[,1]
+    Y <- model$Y
     a_sig <- model$getConstants()$a_sig
     b_sig <- model$getConstants()$b_sig
-    # rho <- gvcCV(model$Xmat, Y)
+    rho <- gvcCV(model$Xmat, Y)
   },
   run = function(){
     # nimPrint("sigma2")
     xmat <- model$Xmat
     alpha <- N/2 + a_sig
-    # SS <- Stheta(Xmat = xmat, Y = Y, rho = rho)
+    SS <- Stheta(Xmat = xmat, Y = Y, rho = rho)
     mu <- model$linkFunction[,1]
-    SS <- sum((Y-mu)^2)
+    # SS <- sum((Y-mu)^2)
     beta <- SS/2 + (1/b_sig)
     newSigma <- rinvgamma(1, alpha, beta)
     # nimPrint(newSigma)

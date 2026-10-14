@@ -11,10 +11,10 @@
 #' where \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
 #' prior for variable selection. The link function \eqn{f(\cdot)} is modeled
 #' using a Gaussian process prior with zero mean and squared exponential covariance
-#' kernel \eqn{K(x_1, x_2) = \exp\{-\rho {(x_1 - x_2)^{T}\theta}^2\}},
-#' where \eqn{\rho} determines the smoothness of \eqn{f}.
+#' kernel \eqn{K(x_1, x_2) = \exp\{-\frac{{(x_1 - x_2)^{T}\theta}^2}{\gamma}\}},
+#' where \eqn{\gamma} determines the smoothness of \eqn{f}.
 #' The covariance kernel is re-parameterized to \eqn{\exp\{-{(x_1 - x_2)^{T}\theta^{*}}^2\}} where
-#' \eqn{\rho = ||\theta^{*}||} and
+#' \eqn{\gamma = \frac{1}{||\theta^{*}||}} and
 #' \eqn{\theta = ||\theta||^{-1}\theta^{*}}.
 #' Therefore, \eqn{\theta^{*}} is sampled in MCMC.
 #'
@@ -31,7 +31,7 @@
 #' \strong{Sampling} A random walk Metropolis algorithm is used to sample \eqn{\lambda^{-1}}
 #' and a Metropolis-Hastings algorithm is used for the main parameters \eqn{(\theta^{*}, \nu)}.
 #' The variance \eqn{\sigma^2} is directly sampled from posterior distribution.
-#' \eqn{f} is not directly sampled by MCMC.
+#' \eqn{f} is not directly sampled by MCMC. A large number of total iterations is required to achieve convergence, and thinning may therefore be necessary.
 #'
 #' \strong{Prior hyper-parameters}
 #' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
@@ -59,6 +59,8 @@
 #' \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
 #'
 #' }
+#'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+#'  In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 #'
 #'
 #'@inherit bsFisher return
@@ -78,17 +80,17 @@
 #'
 #' # One tool version
 #' fit1 <- gpSpike(y ~ ., data = simdata,
-#'                niter = 5000, nburnin = 1000)
+#'                niter = 10000, nburnin = 5000, thin = 40)
 #'
 #' # Split version
 #' models <- gpSpike_setup(y ~ ., data = simdata)
 #' Ccompile <- compileModelAndMCMC(models)
 #' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
-#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+#' mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 40,
 #'                     nchains = 1, setSeed = TRUE, inits = initList,
 #'                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-#' fit2 <- as_bsim(models, mcmc.out)
+#' fit2 <- as_bsim(models, mcmc.out, Ccompile)
 #' summary(fit2)
 #' }
 #'
@@ -103,14 +105,16 @@ gpSpike <- function(formula, data,
                     prior = NULL,
                     init = NULL,
                     monitors = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, nchain = 1, setSeed = FALSE
+                    thin = 1, nchain = 1, setSeed = FALSE,
+                    scale = FALSE, center = FALSE
 ){
   return(gpSpike.default(formula = formula, data = data,
                          prior = prior,
                          init = init,
                          sampling = TRUE, monitors = monitors,
                          niter = niter, nburnin=nburnin,
-                         thin = thin, nchain = nchain, setSeed = setSeed))
+                         thin = thin, nchain = nchain, setSeed = setSeed,
+                         scale = scale, center = center))
 }
 
 #' @rdname gpSpike
@@ -119,14 +123,16 @@ gpSpike_setup <- function(formula, data,
                           prior = NULL,
                           init = NULL,
                           monitors = NULL, niter = 10000, nburnin=1000,
-                          thin = 1, nchain = 1, setSeed = FALSE
+                          thin = 1, nchain = 1, setSeed = FALSE,
+                          scale = FALSE, center = FALSE
 ){
   return(gpSpike.default(formula = formula, data = data,
                          prior = prior,
                          init = init,
                          sampling = FALSE, monitors = monitors,
                          niter = niter, nburnin=nburnin,
-                         thin = thin, nchain = nchain, setSeed = setSeed))
+                         thin = thin, nchain = nchain, setSeed = setSeed,
+                         scale = scale, center = center))
 }
 
 gpSpike.default <- function(formula, data,
@@ -134,7 +140,8 @@ gpSpike.default <- function(formula, data,
                     init = NULL,
                     sampling = TRUE,
                     monitors = NULL, niter = 10000, nburnin=1000,
-                    thin = 1, nchain = 1, setSeed = FALSE
+                    thin = 1, nchain = 1, setSeed = FALSE,
+                    scale = FALSE, center = FALSE
 ){
   start1 <- Sys.time()
   index_raw <- 0; nu <- 0; invlambda <- 0; sigma2 <- 0
@@ -146,10 +153,6 @@ gpSpike.default <- function(formula, data,
   )
   prior <- checkOutput$priorlist_final
   init <- checkOutput$initlist_final
-
-  # environment
-  envobj <- ls(envir=.GlobalEnv)
-  on.exit(rm(list=ls(envir=.GlobalEnv)[which(!ls(envir=.GlobalEnv)%in%envobj)],envir=.GlobalEnv))
 
 
   # aa_bspline_ver3
@@ -170,370 +173,394 @@ gpSpike.default <- function(formula, data,
     "pred_fitted"
   )
 
-  pkg <- "BayesSIM"
-  ns <- asNamespace(pkg)
-  list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
+  ## snapshots: Find global objects colliding with internal function name
+  colliding <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+  saved <- mget(colliding, envir = .GlobalEnv, inherits = FALSE)
 
+  tryCatch({
+    pkg <- "BayesSIM"
+    ns <- asNamespace(pkg)
+    list2env(mget(.fns, envir = ns, inherits = FALSE), envir = .GlobalEnv)
 
+    # Data
+    if (!is.data.frame(data)){
+      stop("data should be an data.frame.")
+    }
 
-  # Data
-  if (!is.data.frame(data)){
-    stop("data should be an data.frame.")
-  }
-
-  Call <- match.call()
-  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
-  if (indx[1] == 0L)
-    stop("a 'formula' argument is required")
-  temp <- Call[c(1L,indx)]
-  temp[[1L]] <- quote(stats::model.frame)
-  m <- eval.parent(temp)
-  Terms <- attr(m,"terms")
-  formula <- as.character(formula)
-  response.name <- formula[2]
-  data.name <- strsplit(formula[3]," \\+ ")[[1]]
-  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
-  if(data.name[1]=="."){
-    tot.name <- response.name
-  } else{
-    tot.name <- c(response.name ,data.name)
-  }
-  if(!int.flag){
-    stop("BayesSIM cannot treat interaction terms")
-  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
-           length(tot.name)){
-    stop(paste(paste(tot.name[duplicated(c(colnames(data),
-                                           tot.name))[-c(1:ncol(data))]],collapse=","),
-               " is/are not in your data"))
-  }else{
-    origY <- data[ ,response.name]
+    Call <- match.call()
+    indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+    if (indx[1] == 0L)
+      stop("a 'formula' argument is required")
+    temp <- Call[c(1L,indx)]
+    temp[[1L]] <- quote(stats::model.frame)
+    m <- eval.parent(temp)
+    Terms <- attr(m,"terms")
+    formula <- as.character(formula)
+    response.name <- formula[2]
+    data.name <- strsplit(formula[3]," \\+ ")[[1]]
+    int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
     if(data.name[1]=="."){
-      origX <- data[,colnames(data) != response.name]
-    }else {
-      origX <- data[ ,data.name,drop=FALSE]
+      tot.name <- response.name
+    } else{
+      tot.name <- c(response.name ,data.name)
     }
-  }
-
-  # X = origX, Y = origY
-  X <- as.matrix(origX)
-  Y <- as.matrix(origY)
-
-  # data dimension
-  N <- length(Y)
-  p <- ncol(X)
-
-
-  # standardized X
-  # meanX <- apply(X, 2, mean); sdX <- apply(X, 2, sd)
-  # scaleX <- matrix(0, ncol = p, nrow = N)
-  # for (i in 1:p){
-  #   scaleX[,i] <- (X[,i] - meanX[i])/sdX[i]
-  # }
-  scaleX <- X
-
-  ## zero mean
-  # z <- 1
-  # Z <- matrix(rep(0, N), nrow = N)
-  # init_gam <- rep(0, z)
-  # init_Zlin <- as.vector(Z %*% matrix(init_gam, nrow = z))
-
-
-  # Prior parameters
-  ## check data dimension and save
-  ## theta
-  if (is.null(prior$index$r1)||
-      length(prior$index$r1) >= 2 ||
-      prior$index$r1 < 0){
-    stop("Prior index (r1) has incorrect value.")
-  } else{
-    a0 <- prior$index$r1
-  }
-
-  if (is.null(prior$index$r2)||
-      length(prior$index$r2) >= 2 ||
-      prior$index$r2 < 0){
-    stop("Prior index (r2) has incorrect value.")
-  } else{
-    b0 <- prior$index$r2
-  }
-
-  if (is.null(prior$index$sigma_theta)||
-      length(prior$index$sigma_theta) >= 2 ||
-      prior$index$sigma_theta < 0){
-    stop("Prior index (sigma_theta) has incorrect value.")
-  } else{
-    sigma_theta <- prior$index$sigma_theta
-  }
-
-  ## link
-  if ((!is.null(prior$link$inv_lambda_shape))&
-      (length(prior$link$inv_lambda_shape) >= 2 ||
-      prior$link$inv_lambda_shape < 0)){
-    stop("Prior inverse lambda (a) has incorrect value.")
-  }
-  a_lam <- prior$link$inv_lambda_shape
-
-
-  if ((!is.null(prior$link$inv_lambda_rate))&
-      (length(prior$link$inv_lambda_rate) >= 2 ||
-      prior$link$inv_lambda_rate < 0)){
-    stop("Prior inverse lambda (b) has incorrect value.")
-  }
-  b_lam <- prior$link$inv_lambda_rate
-
-
-  ## sigma
-  if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
-    stop("Prior sigma2 (a) has incorrect value.")
-  } else{
-    a_sig <- prior$sigma2$shape
-  }
-
-  if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
-    stop("Prior sigma2 (b) has incorrect value.")
-  } else{
-    b_sig <- prior$sigma2$rate
-  }
-
-  # seed
-  seedNum <- rep(FALSE, nchain)
-  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
-    stop("'setSeed' must be logical or numeric.")
-  }
-
-  if (is.logical(setSeed)) {
-
-    if (length(setSeed) != 1) {
-      stop("If 'setSeed' is logical, it must be length 1.")
+    if(!int.flag){
+      stop("BayesSIM cannot treat interaction terms")
+    }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+             length(tot.name)){
+      stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                             tot.name))[-c(1:ncol(data))]],collapse=","),
+                 " is/are not in your data"))
+    }else{
+      origY <- data[ ,response.name]
+      if(data.name[1]=="."){
+        origX <- data[,colnames(data) != response.name]
+      }else {
+        origX <- data[ ,data.name,drop=FALSE]
+      }
     }
 
-    if (setSeed) {
-      seedNum <- seq_len(nchain)
-    } else {
-      seedNum <- rep(FALSE, nchain)
+    # Scale the data
+    scaleCenter <- NULL; scaleSD <- NULL
+    if (scale || center){
+      scaleX <- scale(origX, center = center, scale = scale)
+      if (center) scaleCenter <- attr(scaleX, "scaled:center")
+      if (scale) scaleSD <- attr(scaleX, "scaled:scale")
+      X <- as.matrix(scaleX)
+    } else{
+      X <- as.matrix(origX)
     }
-  }
+    Y <- as.matrix(origY)
 
-  if (is.numeric(setSeed)) {
-
-    if (length(setSeed) == 1) {
-      seedNum <- rep(setSeed, nchain)
-
-    } else if (length(setSeed) == nchain) {
-      seedNum <- setSeed
-
-    } else {
-      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
-    }
-  }
+    # data dimension
+    N <- length(Y)
+    p <- ncol(X)
 
 
-  # initial value
-  inits_list <- lapply(seq_len(nchain),
-                       function(j) initfunction_gpSpike(x = scaleX, y = Y, p = p,
-                                                        pi = init$index$pi, nu = init$index$nu,
-                                                        index = init$index$index, inv_lambda = init$link$inv_lambda,
-                                                        sigma2 = init$sigma2,
-                                                        setSeed = seedNum[j]))
-  firstInit <- inits_list[[1]]
+    # standardized X
+    # meanX <- apply(X, 2, mean); sdX <- apply(X, 2, sd)
+    # scaleX <- matrix(0, ncol = p, nrow = N)
+    # for (i in 1:p){
+    #   scaleX[,i] <- (X[,i] - meanX[i])/sdX[i]
+    # }
+    scaleX <- X
+
+    ## zero mean
+    # z <- 1
+    # Z <- matrix(rep(0, N), nrow = N)
+    # init_gam <- rep(0, z)
+    # init_Zlin <- as.vector(Z %*% matrix(init_gam, nrow = z))
 
 
-
-  # Model code
-  Rmodelcode <- nimbleCode({
-    # thetastar: spike and slab
-    pi ~ dbeta(a0, b0)
-    for (j in 1:p) {
-      nu[j] ~ dbern(pi)
-      index_raw[j] ~ dnorm(0, sd = sigma_theta)
-      indexstar[j] <- index_raw[j] * nu[j]
-    }
-    index[1:p] <- indexstar[1:p]/sqrt(sum(indexstar[1:p]^2))
-
-    # Linear predictor
-    for (i in 1:N){
-      Xlin[i] <- sum(X[i,1:p] * indexstar[1:p])
+    # Prior parameters
+    ## check data dimension and save
+    ## theta
+    if (is.null(prior$index$r1)||
+        length(prior$index$r1) >= 2 ||
+        prior$index$r1 < 0){
+      stop("Prior index (r1) has incorrect value.")
+    } else{
+      a0 <- prior$index$r1
     }
 
-    # likelihood
-    invlambda ~ dgamma(a_lam, rate = b_lam)
-    sigma2 ~ dinvgamma(a_sig, rate = b_sig)
-    Ki[1:N, 1:N] <- expcov_gpSpike(Xlin[1:N], invlambda) # invlambda * (I + lambda^(-1)*K)
-    cov[1:N, 1:N] <- sigma2 * Ki[1:N, 1:N]
+    if (is.null(prior$index$r2)||
+        length(prior$index$r2) >= 2 ||
+        prior$index$r2 < 0){
+      stop("Prior index (r2) has incorrect value.")
+    } else{
+      b0 <- prior$index$r2
+    }
 
-    Y[1:N, 1] ~ dmnorm(mu0[1:N], cov = cov[1:N, 1:N])
+    if (is.null(prior$index$sigma_theta)||
+        length(prior$index$sigma_theta) >= 2 ||
+        prior$index$sigma_theta < 0){
+      stop("Prior index (sigma_theta) has incorrect value.")
+    } else{
+      sigma_theta <- prior$index$sigma_theta
+    }
 
+    ## link
+    if ((!is.null(prior$link$inv_lambda_shape))&
+        (length(prior$link$inv_lambda_shape) >= 2 ||
+         prior$link$inv_lambda_shape < 0)){
+      stop("Prior inverse lambda (a) has incorrect value.")
+    }
+    a_lam <- prior$link$inv_lambda_shape
+
+
+    if ((!is.null(prior$link$inv_lambda_rate))&
+        (length(prior$link$inv_lambda_rate) >= 2 ||
+         prior$link$inv_lambda_rate < 0)){
+      stop("Prior inverse lambda (b) has incorrect value.")
+    }
+    b_lam <- prior$link$inv_lambda_rate
+
+
+    ## sigma
+    if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
+      stop("Prior sigma2 (a) has incorrect value.")
+    } else{
+      a_sig <- prior$sigma2$shape
+    }
+
+    if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
+      stop("Prior sigma2 (b) has incorrect value.")
+    } else{
+      b_sig <- prior$sigma2$rate
+    }
+
+    # seed
+    seedNum <- rep(FALSE, nchain)
+    if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+      stop("'setSeed' must be logical or numeric.")
+    }
+
+    if (is.logical(setSeed)) {
+
+      if (length(setSeed) != 1) {
+        stop("If 'setSeed' is logical, it must be length 1.")
+      }
+
+      if (setSeed) {
+        seedNum <- seq_len(nchain)
+      } else {
+        seedNum <- rep(FALSE, nchain)
+      }
+    }
+
+    if (is.numeric(setSeed)) {
+
+      if (length(setSeed) == 1) {
+        seedNum <- rep(setSeed, nchain)
+
+      } else if (length(setSeed) == nchain) {
+        seedNum <- setSeed
+
+      } else {
+        stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
+      }
+    }
+
+
+    # initial value
+    inits_list <- lapply(seq_len(nchain),
+                         function(j) initfunction_gpSpike(x = scaleX, y = Y, p = p,
+                                                          pi = init$index$pi, nu = init$index$nu,
+                                                          index = init$index$index, inv_lambda = init$link$inv_lambda,
+                                                          sigma2 = init$sigma2,
+                                                          setSeed = seedNum[j]))
+    firstInit <- inits_list[[1]]
+
+
+
+    # Model code
+    Rmodelcode <- nimbleCode({
+      # thetastar: spike and slab
+      pi ~ dbeta(a0, b0)
+      for (j in 1:p) {
+        nu[j] ~ dbern(pi)
+        index_raw[j] ~ dnorm(0, sd = sigma_theta)
+        indexstar[j] <- index_raw[j] * nu[j]
+      }
+      index[1:p] <- indexstar[1:p]/sqrt(sum(indexstar[1:p]^2))
+
+      # Linear predictor
+      for (i in 1:N){
+        Xlin[i] <- sum(X[i,1:p] * indexstar[1:p])
+      }
+
+      # likelihood
+      invlambda ~ dgamma(a_lam, rate = b_lam)
+      sigma2 ~ dinvgamma(a_sig, rate = b_sig)
+      Ki[1:N, 1:N] <- expcov_gpSpike(Xlin[1:N], invlambda) # invlambda * (I + lambda^(-1)*K)
+      cov[1:N, 1:N] <- sigma2 * Ki[1:N, 1:N]
+
+      Y[1:N, 1] ~ dmnorm(mu0[1:N], cov = cov[1:N, 1:N])
+
+    })
+
+    # Build model
+    message("== Building model ==")
+    suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
+                                                data = list(X = scaleX, Y = Y),
+                                                constants = list(p = p, N = N,
+                                                                 a0 = a0, b0 = b0,
+                                                                 a_lam = a_lam, b_lam = b_lam,
+                                                                 a_sig = a_sig, b_sig = b_sig,
+                                                                 sigma_theta = sigma_theta,
+                                                                 mu0 = rep(0, N)),
+                                                inits = firstInit))
+
+
+    # Assign samplers
+    message("== Assigning samplers ==")
+    monitorsList <- c("nu", "index", "sigma2", "Xlin", "invlambda", "pi",
+                      "indexstar", "index_raw")
+
+    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                               monitors = monitorsList,
+                                               print = FALSE))
+
+
+    # 1. invlambda
+    mcmcConf$removeSamplers(c("invlambda"))
+    mcmcConf$addSampler(target = c("invlambda"),
+                        type   = SamplingLambda_gp_spike)
+
+    # 2. index_raw, v, (indexstar)
+    mcmcConf$removeSamplers(c("index_raw", "nu"))
+    mcmcConf$addSampler(target = c("index_raw", "nu"),
+                        type   = SamplingThetaV_gp_spike)
+
+    # 3. sigma^2
+    mcmcConf$removeSamplers(c("sigma2"))
+    mcmcConf$addSampler(target = c("sigma2"),
+                        type   = gibbsSigma2_gp_spike)
+    # mcmcConf1$printSamplers(executionOrder= TRUE)
+
+    # 4. gam
+    # mcmcConf$removeSamplers(c("gam"))
+    # mcmcConf$addSampler(target = c("gam"),
+    #                      type   = "gibbsGam_gp_spike")
+
+
+    mcmc1 <- buildMCMC(mcmcConf)
+
+
+    if (!sampling){
+      mcmc.out <- NULL
+      samples <- NULL
+
+    } else{
+      # Compile
+      start2 <- Sys.time()
+      message("== Compiling model ==")
+      suppressMessages(CsimpleModel <- compileNimble(simpleModel))
+      message("== Compiling samplers ==")
+      suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
+                                              resetFunctions = TRUE))
+      end2 <- Sys.time()
+
+      # Sampling
+      message("== Running MCMC ==")
+      if (is.logical(setSeed)) {
+        seedNum <- setSeed
+      }
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin,
+                          nchains = nchain, setSeed = seedNum,
+                          inits = inits_list,
+                          summary = FALSE, samplesAsCodaMCMC = TRUE)
+
+
+      samples <- NULL
+
+      if (nchain > 1){
+        for (i in 1:nchain){
+          samples <- rbind(samples, mcmc.out[[i]])
+        }
+      } else if (nchain == 1){
+        samples <- mcmc.out
+      }
+
+      # # standardize index (make length = 1)
+      # namesIndex <- paste0("indexstar", 1:p)
+      # samples[, namesIndex] <- t(apply(samples[, namesIndex, drop = FALSE], 1, function(x) {
+      #   x / sqrt(sum(x^2))
+      # }))
+
+
+    }
+    end1 <- Sys.time()
+
+    ## Input options
+    ## Input options
+    if (!sampling){
+      time <- NULL
+    } else{
+      time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
+    }
+
+
+    # results ---------------------------------------------------------------------
+    #Model point estimation
+    modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+    inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
+                         prior = list(index = list(r1 = a0, r2 = b0, sigma_theta = sigma_theta),
+                                      link = list(inv_lambda_shape = a_lam, inv_lambda_rate = b_lam),
+                                      sigma2 = list(shape = a_sig, rate = b_sig)),
+                         samplingOptions = list(sampling = sampling,
+                                                monitors = monitors, niter = niter,
+                                                nburnin = nburnin, thin = thin,
+                                                nchain = nchain, setSeed = setSeed),
+                         scaling = list(scale = scale, center = center,
+                                        scaleCenter = scaleCenter, scaleSD = scaleSD),
+                         init = inits_list, # initial value for MCMC
+                         time = time)
+
+
+    if (sampling){
+      out <- list(coefficients = modelESTLIST$coefficients,
+                  ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                  residuals = modelESTLIST$residuals,
+                  fitted.values = modelESTLIST$fitted.values,
+                  linear.predictors = modelESTLIST$linear.predictors,
+                  gof = modelESTLIST$gof,
+                  samples = mcmc.out, # return of runMCMC
+                  input = inputOptions,
+                  defModel = simpleModel, defSampler = mcmc1,
+                  defCModel = CsimpleModel, defCSampler = Cmcmc,
+                  modelName = "gpSpike")
+
+      # sampling the fitted values--
+
+      samples <- sampleBind(out$samples, nchain)
+      nsamp <- nrow(samples)
+      namesIndex <- paste0("indexstar[", 1:p, "]")
+      namesXlin <- paste0("Xlin[", 1:N, "]")
+
+      indexstarSample <- samples[, namesIndex]
+      XlinSample <- samples[, namesXlin]
+      sigma2_samples <- samples[, "sigma2"]
+      invlambdaSample <- samples[,"invlambda"]
+
+      message("== Compiling functions for fitted values ==")
+      suppressMessages(
+        cpred_gpSpike <- compileNimble(pred_gpSpike)
+      )
+
+      testPred <- cpred_gpSpike(scaleX, nsamp, Y, indexstarSample,
+                                XlinSample, sigma2_samples, invlambdaSample,
+                                prediction = 1)
+
+      out$fitted.values <- apply(testPred, 2, mean)
+      out$residuals <- out$fitted.values - as.vector(Y)
+      out$gof <- mean(out$residuals^2)
+
+      class(out) <- "bsim"
+
+
+    } else{
+      out <- list(input = inputOptions,
+                  defModel = simpleModel,
+                  defSampler = mcmc1,
+                  modelName = "gpSpike")
+
+      class(out) <- "bsimSetup"
+
+    }
+    return(out)
+
+  }, finally = {
+    present <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+    if (length(present)) rm(list = present, envir = .GlobalEnv)
+    if (length(saved))  list2env(saved, envir = .GlobalEnv)
   })
 
-  # Build model
-  message("== Building model ==")
-  suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
-                        data = list(X = scaleX, Y = Y),
-                        constants = list(p = p, N = N,
-                                         a0 = a0, b0 = b0,
-                                         a_lam = a_lam, b_lam = b_lam,
-                                         a_sig = a_sig, b_sig = b_sig,
-                                         sigma_theta = sigma_theta,
-                                         mu0 = rep(0, N)),
-                        inits = firstInit))
 
-
-  # Assign samplers
-  message("== Assigning samplers ==")
-  monitorsList <- c("nu", "index", "sigma2", "Xlin", "invlambda", "pi",
-                    "indexstar")
-
-  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                                             monitors = monitorsList,
-                                             print = FALSE))
-
-
-  # 1. invlambda
-  mcmcConf$removeSamplers(c("invlambda"))
-  mcmcConf$addSampler(target = c("invlambda"),
-                       type   = SamplingLambda_gp_spike)
-
-  # 2. index_raw, v, (indexstar)
-  mcmcConf$removeSamplers(c("index_raw", "nu"))
-  mcmcConf$addSampler(target = c("index_raw", "nu"),
-                       type   = SamplingThetaV_gp_spike)
-
-  # 3. sigma^2
-  mcmcConf$removeSamplers(c("sigma2"))
-  mcmcConf$addSampler(target = c("sigma2"),
-                       type   = gibbsSigma2_gp_spike)
-  # mcmcConf1$printSamplers(executionOrder= TRUE)
-
-  # 4. gam
-  # mcmcConf$removeSamplers(c("gam"))
-  # mcmcConf$addSampler(target = c("gam"),
-  #                      type   = "gibbsGam_gp_spike")
-
-
-  mcmc1 <- buildMCMC(mcmcConf)
-
-
-  if (!sampling){
-    mcmc.out <- NULL
-    samples <- NULL
-
-  } else{
-    # Compile
-    start2 <- Sys.time()
-    message("== Compiling model ==")
-    suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compiling samplers ==")
-    suppressMessages(Cmcmc <- compileNimble(mcmc1, project = simpleModel,
-                                            resetFunctions = TRUE))
-    end2 <- Sys.time()
-
-    # Sampling
-    message("== Running MCMC ==")
-    if (is.logical(setSeed)) {
-      seedNum <- setSeed
-    }
-    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                        thin = thin,
-                        nchains = nchain, setSeed = seedNum,
-                        inits = inits_list,
-                        summary = FALSE, samplesAsCodaMCMC = TRUE)
-
-
-    samples <- NULL
-
-    if (nchain > 1){
-      for (i in 1:nchain){
-        samples <- rbind(samples, mcmc.out[[i]])
-      }
-    } else if (nchain == 1){
-      samples <- mcmc.out
-    }
-
-    # # standardize index (make length = 1)
-    # namesIndex <- paste0("indexstar", 1:p)
-    # samples[, namesIndex] <- t(apply(samples[, namesIndex, drop = FALSE], 1, function(x) {
-    #   x / sqrt(sum(x^2))
-    # }))
-
-
-  }
-  end1 <- Sys.time()
-
-  ## Input options
-  ## Input options
-  if (!sampling){
-    time <- NULL
-  } else{
-    time <- difftime(end1, start1, units = "secs") - difftime(end2, start2, units = "secs")
-  }
-
-
-  # results ---------------------------------------------------------------------
-  #Model point estimation
-  modelESTLIST <- bsimFit_pointest(samples, X, Y)
-
-  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
-                       prior = list(index = list(r1 = a0, r2 = b0, sigma_theta = sigma_theta),
-                                    link = list(inv_lambda_shape = a_lam, inv_lambda_rate = b_lam),
-                                    sigma2 = list(shape = a_sig, rate = b_sig)),
-                       samplingOptions = list(sampling = sampling,
-                                              monitors = monitors, niter = niter,
-                                              nburnin = nburnin, thin = thin,
-                                              nchain = nchain, setSeed = setSeed),
-                       init = inits_list, # initial value for MCMC
-                       time = time)
-
-
-  if (sampling){
-    out <- list(coefficients = modelESTLIST$coefficients,
-                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
-                residuals = modelESTLIST$residuals,
-                fitted.values = modelESTLIST$fitted.values,
-                linear.predictors = modelESTLIST$linear.predictors,
-                gof = modelESTLIST$gof,
-                samples = mcmc.out, # return of runMCMC
-                input = inputOptions,
-                defModel = simpleModel, defSampler = mcmc1,
-                modelName = "gpSpike")
-
-    # sampling the fitted values--
-
-    samples <- sampleBind(out$samples, nchain)
-    nsamp <- nrow(samples)
-    namesIndex <- paste0("indexstar[", 1:p, "]")
-    namesXlin <- paste0("Xlin[", 1:N, "]")
-
-    indexstarSample <- samples[, namesIndex]
-    XlinSample <- samples[, namesXlin]
-    sigma2_samples <- samples[, "sigma2"]
-    invlambdaSample <- samples[,"invlambda"]
-
-    message("== Compiling functions for fitted values ==")
-    suppressMessages(
-      cpred_gpSpike <- compileNimble(pred_gpSpike)
-    )
-
-    testPred <- cpred_gpSpike(X, nsamp, Y, indexstarSample,
-                              XlinSample, sigma2_samples, invlambdaSample,
-                              prediction = 1)
-
-    out$fitted.values <- apply(testPred, 2, mean)
-    out$residuals <- out$fitted.values - as.vector(Y)
-    out$gof <- mean(out$residuals^2)
-
-    class(out) <- "bsim"
-
-
-  } else{
-    out <- list(input = inputOptions,
-                defModel = simpleModel,
-                defSampler = mcmc1,
-                modelName = "gpSpike")
-
-    class(out) <- "bsimSetup"
-
-  }
-  return(out)
 
 }
 

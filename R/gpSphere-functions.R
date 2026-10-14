@@ -235,13 +235,17 @@ initFunction_gpSphere <- function(N, p, X, Y,
                 lengthscale = init_lengthscale, amp = init_amp,
                 Xlin = init_Xlin,cov = init_cov,
                 sigma2 = init_sigma2,
-                linkFunction = init_linkFunction, Sigma = init_Simga))
+                linkFunction = init_linkFunction)
+                # , Sigma = init_Simga)
+           )
   } else{
     return(list(index = init_index,
                 lengthscale = init_lengthscale, amp = init_amp,
                 Xlin = init_Xlin,cov = init_cov,
                 sigma2 = init_sigma2,
-                linkFunction = init_linkFunction, Sigma = init_Simga))
+                linkFunction = init_linkFunction)
+                # , Sigma = init_Simga)
+           )
   }
 
 

@@ -185,7 +185,8 @@ indexSampler_bspline_sphere <-  nimble::nimbleFunction(
       if(u < ratio) { # accept
         # nimPrint("accept")
         # calculate knots
-        tempTheta <- 0.0; tempTheta <- proposedTheta[1]
+        tempTheta <- 0.0; # tempTheta <- proposedTheta[1]
+        tempThetav <- proposedTheta[proposedTheta!=0][1]
         if (tempTheta < 0 ){
           # nimPrint("change sign")
           newa <- 0.0; newb <- 0.0
@@ -193,7 +194,8 @@ indexSampler_bspline_sphere <-  nimble::nimbleFunction(
           model$index <<- (model$index) * (-1)
           temp <- (model$knots) * (-1)
           tempSort <- nimSort(temp)
-          model$nu <<- tempSort
+          model$knots <<- tempSort ##
+          # model$k <<- length(tempSort) ##
           model$a_alpha <<- nimC((newa) * (-1))
           model$b_alpha <<- nimC((newb) * (-1))
           model$calculate(calcNodes)
@@ -389,8 +391,10 @@ betaSampler_bspline_sphere <- nimble::nimbleFunction(
       calcNodes <- model$getDependencies(target)
       N <- model$getConstants()$N
       y <- model$Y
+      mubeta <- model$getConstants()$mubeta
       tau2 <- model$getConstants()$tau
       Sigma0 <- model$getConstants()$Sigma0
+      invSigma0 <- inverse(Sigma0 * tau2) #/tau2
       maxBasis <- model$getConstants()$maxBasis
     },
     run = function(){
@@ -404,7 +408,11 @@ betaSampler_bspline_sphere <- nimble::nimbleFunction(
       Sigma <- computeSig(tau2, Sigma0, xmat, numBasisI)
       realxmat <- xmat[,1:numBasis]
 
-      meanBeta <- Sigma %*% t(realxmat) %*% y
+      # meanBeta <- Sigma %*% t(realxmat) %*% y
+      meanBeta <- Sigma %*% (t(realxmat) %*% y +
+                               (invSigma0[1:numBasis, 1:numBasis] %*%
+                               mubeta[1:numBasis]))
+
       covBeta <- sigma2 * Sigma
       cholBeta <- chol(covBeta)
       newBeta <- rmnorm_chol(1, mean = meanBeta[,1], cholesky  = cholBeta,
@@ -433,16 +441,18 @@ sigma2Sampler_bspline_sphere <-  nimble::nimbleFunction(
       y <- model$Y
       tau2 <- model$getConstants()$tau
       Sigma0 <- model$getConstants()$Sigma0
+      a_sig <- model$getConstants()$a_sig
+      b_sig <- model$getConstants()$b_sig
     },
     run = function(){
       # nimPrint("sigma2")
       numBasis <- model$numBasis
       xmat <- model$Xmat
-      alpha <- N/2
+      alpha <- N/2 + a_sig
       numBasisI <- as.integer(numBasis[1])
       Sigma <- computeSig(tau2, Sigma0, xmat, numBasisI)
       SS <- ComputeS(y, xmat, Sigma, numBasisI)
-      beta <- SS/2
+      beta <- SS/2+ b_sig
       newSigma <- rinvgamma(1, alpha, beta)
       # nimPrint(newSigma)
 

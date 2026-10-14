@@ -2,7 +2,7 @@ Type: Package
 Package: BayesSIM
 Title: Integrated Interface of Bayesian Single Index Models using
         'nimble'
-Version: 1.0.4
+Version: 2.0.0
 Authors@R: c(
     person("Seowoo", "Jung", , "jsw1347@ewha.ac.kr", role = c("aut", "cre")),
     person("Eun-kyung", "Lee", , "lee.eunk@ewha.ac.kr", role = "aut")
@@ -23,15 +23,16 @@ Description: Provides tools for fitting Bayesian single index models with
     <doi:10.1214/19-BA1170>, McGee et al. (2023) <doi:10.1111/biom.13569>.
 License: GPL (>= 2)
 Depends: R (>= 4.1), nimble
-Imports: coda, magrittr, MASS, methods, mvtnorm, patchwork, tidyr,
-        ggplot2, dplyr
+Imports: posterior, magrittr, MASS, methods, mvtnorm, patchwork, tidyr,
+        ggplot2, dplyr, loo, coda
 Suggests: testthat (>= 3.0.0)
 Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: no
-Packaged: 2026-05-11 09:01:43 UTC; Seowoo
-Config/roxygen2/version: 8.0.0
-RoxygenNote: 7.3.3
+Packaged: 2026-10-14 10:52:06 UTC; Seowoo
+Config/roxygen2/version: 8.1.1
+URL: https://github.com/Seowoo-Jung/BayesSIM
+BugReports: https://github.com/Seowoo-Jung/BayesSIM/issues
 Repository: CRAN
-Date/Publication: 2026-05-14 02:40:02 UTC
+Date/Publication: 2026-10-14 12:32:13 UTC

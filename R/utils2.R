@@ -38,9 +38,9 @@ initFunction_bP <- function(X, Y,
 
   # beta
   if (is.null(beta)){
-    init_beta <- estBeta_fisher(init_Xmat, Y, init_rho)
+    init_beta <- matrix(estBeta_fisher(init_Xmat, Y, init_rho), ncol = 1)
   } else{
-    init_beta <- beta
+    init_beta <- matrix(beta, ncol = 1)
   }
   init_linkFunction <- init_Xmat %*%  init_beta
 
@@ -138,11 +138,11 @@ initFunction_bSpike <- function(X, Y,
 
   # beta
   if (is.null(beta)){
-    init_beta <- estBeta_fisher(init_Xmat, Y, init_rho)
+    init_beta <- matrix(estBeta_fisher(init_Xmat, Y, init_rho), ncol = 1)
   } else{
-    init_beta <- beta
+    init_beta <- matrix(beta, ncol = 1)
   }
-  init_linkFunction <- init_Xmat %*%  init_beta
+  init_linkFunction <- init_Xmat %*%init_beta
 
   return(list(pi = init_pi, nu = init_nu,
               index_raw = init_index,
@@ -463,7 +463,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         geom_point(aes(y = pred), color = "grey20", alpha = 0.55, size = 1.6) +
         geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
         labs(x = "Index value", y = "Predicted",
-             title = paste0("Fitted curve with ", level, "% interval"),
+             title = paste0("Fitted curve with ", level*100, "% interval"),
              subtitle = "Points: predicted, Line: posterior mean") +
         theme_minimal() +
         theme(
@@ -490,7 +490,10 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
 
     # 1) fitted vs. observed
     if (!is.null(result$truey)){
-      rmse <- mean((results$truey-results$pred)^2)
+      mse <- mean((results$truey-results$pred)^2)
+
+      lims <- range(results$truey, na.rm = TRUE)
+      lims <- lims + c(-1, 1) * 0.05 * diff(lims)
 
       A1 <- ggplot(results, aes(x = truey, y = pred)) +
         geom_point(color = "black", alpha = 0.6) +
@@ -498,15 +501,16 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         theme_minimal() +
         labs(
           title = "Fitted Plot",
-          x = "True",
+          x = "Observed",
           y = "Predicted",
-          subtitle = paste("RMSE:", round(rmse, 4))
+          subtitle = paste("MSE:", round(mse, 4))
         ) +
         theme(
           plot.title = element_text(hjust = 0.5, face = "bold"),
           axis.title = element_text(face = "bold"),
           panel.grid.minor = element_blank()
-        )
+        ) +
+        coord_cartesian(xlim = lims, ylim = lims, expand = FALSE)
     }
 
 
@@ -537,7 +541,7 @@ plot_bsim_fitted <- function(result, interval){ # result: data.frame
         geom_point(aes(y = truey), color = "grey20", alpha = 0.55, size = 1.6) +
         geom_line(aes(y = pred), color = "firebrick", linewidth = 1) +
         labs(x = "Index value", y = "Response",
-             title = paste0("Fitted curve with ", level, "% interval"),
+             title = paste0("Fitted curve with ", level*100, "% interval"),
              subtitle = "Points: observed, Line: posterior mean") +
         theme_minimal() +
         theme(

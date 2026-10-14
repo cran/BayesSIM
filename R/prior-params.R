@@ -209,27 +209,26 @@ prior_param_default <- function(indexprior, link){
   if (link == "bspline"){
     if (indexprior == "fisher"){
       priorList <- list(index = list(direction = NULL, dispersion = 150),
-                        link = list(basis = list(df = 21, degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
+                        link = list(basis = list(df = 21, degree = 2, delta = 0.001)),
                         sigma2 = list(shape = 0.001, rate = 100))
 
     } else if (indexprior == "sphere"){
       priorList <- list(index = list(nu = list(r1 = 1, r2 = 1)),
                         link = list(knots = list(lambda_k = 5, maxknots = NULL),
                                     basis = list(degree = 2),
-                                    beta = list(mu = NULL, tau = NULL,Sigma0 = NULL)),
+                                    beta = list(mu = NULL, tau = NULL, Sigma0 = NULL)),
                         sigma2 = list(shape = 0.001, rate = 0.001))
 
     } else if (indexprior == "polar"){
       priorList <- list(index = list(psi = list(alpha = NULL)),
                         link = list(basis = list(df = 21,degree = 2, delta = 0.001),
-                                    beta = list(mu = NULL, cov = NULL)),
+                                    beta = list(mu = NULL, tau = NULL, Sigma0 = NULL)),
                         sigma2 = list(shape = 0.001, rate = 100))
 
     } else if (indexprior == "spike"){
       priorList <- list(index = list(nu = list(r1 = 1, r2 = 1), sigma_theta = 0.25),
                         link = list(basis = list(df = 21, degree = 2, delta = 0.01),
-                                    beta = list(mu = NULL, cov = NULL)),
+                                    beta = list(mu = NULL, tau = NULL, Sigma0 = NULL)),
                         sigma2 = list(shape = 0.001, rate = 100))
 
 

@@ -4,14 +4,28 @@
 \alias{getFunction}
 \alias{getModel}
 \alias{getSampler}
+\alias{getCModel}
+\alias{getCSampler}
+\alias{getCModel.bsim}
+\alias{getCSampler.bsim}
 \title{Get nimbleModel and nimbleSampler Object from the Result of \code{compileModelAndMCMC}}
 \usage{
 getModel(object)
 
 getSampler(object)
+
+getCModel(fit)
+
+getCSampler(fit)
+
+\method{getCModel}{bsim}(fit)
+
+\method{getCSampler}{bsim}(fit)
 }
 \arguments{
 \item{object}{The result of \code{compileModelAndMCMC} function.}
+
+\item{fit}{Fitted object of \code{BayesSIM}.}
 }
 \value{
 \code{getModel} returns compiled Nimble model object.
@@ -26,20 +40,26 @@ simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 
 # 1. One tool version
 fit_one <- BayesSIM(y ~ ., data = simdata2,
-                    niter = 5000, nburnin = 1000, nchain = 1)
+                    niter = 10000, nburnin = 5000, nchain = 2)
 
 
 # 2. Split version
-models <- BayesSIM_setup(y ~ ., data = simdata2)
+models <- BayesSIM_setup(y ~ ., data = simdata2, nchain = 2)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                    nchains = 2, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
 
 # "fit_split" becomes exactly the same as the class of "fit_one" object and apply generic functions.
-fit_split <- as_bsim(models, mcmc.out)
+fit_split <- as_bsim(models, mcmc.out, Ccompile)
+
+# Extract compiled model
+compiledModel <- getCModel(fit_split)
+
+# Extract compiled sampler
+compiledSampler <- getCSampler(fit_split)
 
 }
 }

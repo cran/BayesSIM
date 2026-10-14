@@ -21,7 +21,7 @@
 #'     \eqn{r_1, r_2} are shape and rate parameter of beta distribution.
 #'   \item Free‑knot prior: the number of knots \eqn{k} with mean \eqn{\lambda_k}. The knot locations \eqn{\xi_i, i = 1,...,k} have a Dirichlet prior on the scaled interval \eqn{[0, 1]}.
 #'   \item Index vector prior is uniform on the half‑sphere of dimension \eqn{n_\nu} with first nonzero positive.
-#'   \item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration for RJMCMC with covariance \eqn{\tau \Sigma_0}.
+#'   \item Conjugate normal–inverse-gamma on \eqn{(\beta, \sigma^2)} enables analytic integration for RJMCMC with mean \eqn{\boldsymbol{\mu_\beta}}, and covariance \eqn{\sigma \tau \Sigma_0}.
 #' }
 #'
 #' \strong{Sampling} Posterior exploration follows a hybrid RJMCMC with six move types:
@@ -62,6 +62,9 @@
 #'   \item Error variance (\code{sigma2}): Initial scalar error variance. (default \code{0.01})
 #'  }
 #'
+#'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+#'  In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
+#'
 #' @inherit bsFisher return
 #'
 #' @examples
@@ -79,17 +82,17 @@
 #'
 #' # One tool version
 #' fit1 <- bsSphere(y ~ ., data = simdata,
-#'                  niter = 5000, nburnin = 1000, nchain = 1)
+#'                  niter = 10000, nburnin = 3000, nchain = 2)
 #'
 #' # Split version
-#' models <- bsSphere_setup(y ~ ., data = simdata)
+#' models <- bsSphere_setup(y ~ ., data = simdata, nchain = 2)
 #' Ccompile <- compileModelAndMCMC(models)
 #' nimSampler <- getSampler(Ccompile)
 #' initList <- getInit(models)
-#' mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-#'                    nchains = 1, setSeed = TRUE, inits = initList,
+#' mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 3000, thin = 1,
+#'                    nchains = 2, setSeed = TRUE, inits = initList,
 #'                    samplesAsCodaMCMC = TRUE)
-#' fit2 <- as_bsim(models, mcmc.out)
+#' fit2 <- as_bsim(models, mcmc.out, Ccompile)
 #' summary(fit2)
 #' }
 #'
@@ -106,14 +109,16 @@ bsSphere <- function(formula, data,
                      prior = NULL,
                      init = NULL,
                      monitors = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, nchain = 1, setSeed = FALSE){
+                     thin = 1, nchain = 1, setSeed = FALSE,
+                     scale = FALSE, center = FALSE){
 
   return(bsSphere.default(formula = formula, data  = data,
                           prior = prior,
                           init = init,
                           sampling = TRUE,
                           monitors = monitors, niter = niter, nburnin = nburnin,
-                          thin = thin, nchain = nchain, setSeed = setSeed))
+                          thin = thin, nchain = nchain, setSeed = setSeed,
+                          scale = scale, center = center))
 }
 
 #' @rdname bsSphere
@@ -122,13 +127,15 @@ bsSphere_setup <- function(formula, data,
                            prior = NULL,
                            init = NULL,
                            monitors = NULL, niter = 10000, nburnin=1000,
-                           thin = 1, nchain = 1, setSeed = FALSE){
+                           thin = 1, nchain = 1, setSeed = FALSE,
+                           scale = FALSE, center = FALSE){
   return(bsSphere.default(formula = formula, data  = data,
                           prior = prior,
                           init = init,
                           sampling = FALSE,
                           monitors = monitors, niter = niter, nburnin = nburnin,
-                          thin = thin, nchain = nchain, setSeed = setSeed))
+                          thin = thin, nchain = nchain, setSeed = setSeed,
+                          scale = scale, center = center))
 }
 
 bsSphere.default <- function(formula, data,
@@ -136,7 +143,8 @@ bsSphere.default <- function(formula, data,
                      init = NULL,
                      sampling = TRUE,
                      monitors = NULL, niter = 10000, nburnin=1000,
-                     thin = 1, nchain = 1, setSeed = FALSE
+                     thin = 1, nchain = 1, setSeed = FALSE,
+                     scale = FALSE, center = FALSE
 ){
 
   start1 <- Sys.time()
@@ -151,9 +159,6 @@ bsSphere.default <- function(formula, data,
   init <- checkOutput$initlist_final
 
   # global environment
-
-  envobj <- ls(envir=.GlobalEnv)
-  on.exit(rm(list=ls(envir=.GlobalEnv)[which(!ls(envir=.GlobalEnv)%in%envobj)],envir=.GlobalEnv))
   .fns <- c(
     # a_common
     "quickSortOrderIndexOnly", "nimOrder", "nimSort",
@@ -179,410 +184,437 @@ bsSphere.default <- function(formula, data,
     "pred_fitted"
   )
 
-  pkg <- "BayesSIM"
-  ns <- asNamespace(pkg)
-  list2env(mget(.fns, envir = ns, inherits = FALSE), envir = globalenv())
+  ## snapshots: Find global objects colliding with internal function name
+  colliding <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+  saved <- mget(colliding, envir = .GlobalEnv, inherits = FALSE)
 
-  suppressMessages(
-  nimble::registerDistributions(list(
-    dKnotsSimple = list(
-      BUGSdist = "dKnotsSimple(a, b, k, alpha)",
-      types = c("value = double(1)", "a = double(0)", "b = double(0)", "k = double(0)",
-                "alpha = double(1)"),
-      discrete = FALSE
-    )
-  ), verbose = FALSE))
 
-  suppressMessages(
-  nimble::registerDistributions(list(
-    dunitSphere = list(
-      BUGSdist     = "dunitSphere(dim)",
-      types        = c("value = double(1)",
-                       "dim   = double(0)"),
-      discrete     = FALSE
-    )
-  ), verbose = FALSE)
+  tryCatch({
+    pkg <- "BayesSIM"
+    ns <- asNamespace(pkg)
+    list2env(mget(.fns, envir = ns, inherits = FALSE), envir = .GlobalEnv)
+    suppressMessages(
+      nimble::registerDistributions(list(
+        dKnotsSimple = list(
+          BUGSdist = "dKnotsSimple(a, b, k, alpha)",
+          types = c("value = double(1)", "a = double(0)", "b = double(0)", "k = double(0)",
+                    "alpha = double(1)"),
+          discrete = FALSE
+        )
+      ), verbose = FALSE))
 
-  )
+    suppressMessages(
+      nimble::registerDistributions(list(
+        dunitSphere = list(
+          BUGSdist     = "dunitSphere(dim)",
+          types        = c("value = double(1)",
+                           "dim   = double(0)"),
+          discrete     = FALSE
+        )
+      ), verbose = FALSE))
 
-  # check data dimension
-  # Data
-  if (!is.data.frame(data)){
-    stop("data should be an data.frame.")
-  }
+    # check data dimension
+    # Data
+    if (!is.data.frame(data)){
+      stop("data should be an data.frame.")
+    }
 
-  Call <- match.call()
-  indx <- match(c("formula","data"), names(Call), nomatch = 0L)
-  if (indx[1] == 0L)
-    stop("a 'formula' argument is required")
-  temp <- Call[c(1L,indx)]
-  temp[[1L]] <- quote(stats::model.frame)
-  m <- eval.parent(temp)
-  Terms <- attr(m,"terms")
-  formula <- as.character(formula)
-  response.name <- formula[2]
-  data.name <- strsplit(formula[3]," \\+ ")[[1]]
-  int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
-  if(data.name[1]=="."){
-    tot.name <- response.name
-  } else{
-    tot.name <- c(response.name ,data.name)
-  }
-  if(!int.flag){
-    stop("BayesSIM cannot treat interaction terms")
-  }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
-           length(tot.name)){
-    stop(paste(paste(tot.name[duplicated(c(colnames(data),
-                                           tot.name))[-c(1:ncol(data))]],collapse=","),
-               " is/are not in your data"))
-  }else{
-    origY <- data[ ,response.name]
+    Call <- match.call()
+    indx <- match(c("formula","data"), names(Call), nomatch = 0L)
+    if (indx[1] == 0L)
+      stop("a 'formula' argument is required")
+    temp <- Call[c(1L,indx)]
+    temp[[1L]] <- quote(stats::model.frame)
+    m <- eval.parent(temp)
+    Terms <- attr(m,"terms")
+    formula <- as.character(formula)
+    response.name <- formula[2]
+    data.name <- strsplit(formula[3]," \\+ ")[[1]]
+    int.flag <- any(strsplit(formula[3]," \\* ")[[1]] == formula[3])
     if(data.name[1]=="."){
-      origX <- data[,colnames(data) != response.name]
-    }else {
-      origX <- data[ ,data.name,drop=FALSE]
+      tot.name <- response.name
+    } else{
+      tot.name <- c(response.name ,data.name)
     }
-  }
-
-  # X = origX, Y = origY
-  X <- as.matrix(origX)
-  Y <- as.matrix(origY)
-
-  # data dimension
-  N <- length(Y)
-  p <- ncol(X)
-
-
-  # Model code
-  Rmodelcode <- nimbleCode({
-    for (i in 1:p) {
-      nu[i] ~ dbern(r1/(r1+r2))
-    }
-
-    # index
-    index[1:p] ~ dunitSphere(p) ## half unit sphere
-
-    # Linear predictor
-    for (i in 1:N){
-      Xlin[i] <- sum(X[i, 1:p] * index[1:p])
+    if(!int.flag){
+      stop("BayesSIM cannot treat interaction terms")
+    }else if(!sum(duplicated(c(colnames(data),tot.name))[-c(1:ncol(data))])==
+             length(tot.name)){
+      stop(paste(paste(tot.name[duplicated(c(colnames(data),
+                                             tot.name))[-c(1:ncol(data))]],collapse=","),
+                 " is/are not in your data"))
+    }else{
+      origY <- data[ ,response.name]
+      if(data.name[1]=="."){
+        origX <- data[,colnames(data) != response.name]
+      }else {
+        origX <- data[ ,data.name,drop=FALSE]
+      }
     }
 
-    # boundary knots
-    a_alpha <- min(Xlin[1:N])
-    b_alpha <- max(Xlin[1:N])
+    # Scale the data
+    scaleCenter <- NULL; scaleSD <- NULL
+    if (scale || center){
+      scaleX <- scale(origX, center = center, scale = scale)
+      if (center) scaleCenter <- attr(scaleX, "scaled:center")
+      if (scale) scaleSD <- attr(scaleX, "scaled:scale")
+      X <- as.matrix(scaleX)
+    } else{
+      X <- as.matrix(origX)
+    }
+    Y <- as.matrix(origY)
 
-    # knots
-    k ~ dpois(lambda_k)
-    knots[1:maxknots] ~ dKnotsSimple(a = a_alpha, b = b_alpha, k = k, alpha = alpha[1:maxknots])
+    # data dimension
+    N <- length(Y)
+    p <- ncol(X)
 
-    # Design matrix - b spline basis
-    numBasis <- degree + k + 1 # real dimension
-    Xmat[1:N, 1:maxBasis] <- transX_sp(Xlin[1:N], degree, knots[1:maxknots], k, maxBasis, a_alpha, b_alpha)
 
-    # likelihood
-    sigma2 ~ dinvgamma(a_sig, b_sig)
-    covBeta[1:maxBasis, 1:maxBasis] <- (sigma2 * tau) * Sigma0[1:maxBasis, 1:maxBasis]
-    beta[1:maxBasis, 1] ~ dmnorm(mubeta[1:maxBasis],
-                                 cov = covBeta[1:maxBasis, 1:maxBasis])
+    # Model code
+    Rmodelcode <- nimbleCode({
+      for (i in 1:p) {
+        nu[i] ~ dbern(r1/(r1+r2))
+      }
 
-    linkFunction[1:N, 1] <- Xmat[1:N, 1:maxBasis] %*% beta[1:maxBasis, 1]
-    covY[1:N, 1:N] <- sigma2 * Sigma[1:N, 1:N]
-    Y[1:N, 1] ~ dmnorm(linkFunction[1:N, 1], cov = covY[1:N, 1:N])
+      # index
+      index[1:p] ~ dunitSphere(p) ## half unit sphere
 
+      # Linear predictor
+      for (i in 1:N){
+        Xlin[i] <- sum(X[i, 1:p] * index[1:p])
+      }
+
+      # boundary knots
+      a_alpha <- min(Xlin[1:N])
+      b_alpha <- max(Xlin[1:N])
+
+      # knots
+      k ~ dpois(lambda_k)
+      knots[1:maxknots] ~ dKnotsSimple(a = a_alpha, b = b_alpha, k = k, alpha = alpha[1:maxknots])
+
+      # Design matrix - b spline basis
+      numBasis <- degree + k + 1 # real dimension
+      Xmat[1:N, 1:maxBasis] <- transX_sp(Xlin[1:N], degree, knots[1:maxknots], k, maxBasis, a_alpha, b_alpha)
+
+      # likelihood
+      sigma2 ~ dinvgamma(a_sig, b_sig)
+      covBeta[1:maxBasis, 1:maxBasis] <- (sigma2 * tau) * Sigma0[1:maxBasis, 1:maxBasis]
+      beta[1:maxBasis, 1] ~ dmnorm(mubeta[1:maxBasis],
+                                   cov = covBeta[1:maxBasis, 1:maxBasis])
+
+      linkFunction[1:N, 1] <- Xmat[1:N, 1:maxBasis] %*% beta[1:maxBasis, 1]
+      covY[1:N, 1:N] <- sigma2 * Sigma[1:N, 1:N]
+      Y[1:N, 1] ~ dmnorm(linkFunction[1:N, 1], cov = covY[1:N, 1:N])
+
+    })
+
+
+    # Prior parameters
+    ## check data dimension and save
+    ## index - nu
+    if (is.null(prior$index$nu$r1) || is.null(prior$index$nu$r2)){
+      stop("nu prior is not available.")
+    }
+    if (prior$index$nu$r1 <= 0 || prior$index$nu$r2 <= 0){
+      stop("nu prior should be positive.")
+    }
+
+    r1 <- prior$index$nu$r1
+    r2 <- prior$index$nu$r2
+
+    ## link - knots
+    if (is.null(prior$link$knots$lambda_k) || is.null(prior$link$knots$lambda_k)){
+      stop("knots prior is not available.")
+    }
+    if (prior$link$knots$lambda_k <= 0){
+      stop("knots prior should be positive.")
+    }
+
+    lambda_k <- prior$link$knots$lambda_k
+
+    maxknots <- ifelse(is.null(prior$link$knots$maxknots),
+                       qpois(1-0.01, lambda = lambda_k), prior$link$knots$maxknots)
+
+    if (length(maxknots) >= 2 || maxknots < 0){
+      stop("Prior link (maxknots) has incorrect value.")
+    }
+
+    ## link - basis
+    if (is.null(prior$link$basis$degree)||length(prior$link$basis$degree) >= 2 || prior$link$basis$degree< 0){
+      stop("Prior basis (degree) has incorrect value.")
+    } else{
+      degree <- prior$link$basis$degree
+    }
+
+    alpha <- rep(1/maxknots, maxknots)
+    maxBasis <- degree + 1 + maxknots
+
+
+    ## beta
+    ## tau
+    tau <- ifelse(is.null(prior$link$beta$tau), N, prior$link$beta$tau)
+    if (length(tau) >= 2 || tau < 0){
+      stop("Prior beta (tau) has incorrect value.")
+    }
+
+    ## mu
+    if (!is.vector(prior$link$beta$mu) & !is.null(prior$link$beta$mu)){
+      stop("Prior beta (mu) should be vector.")
+    }
+    if (!is.null(prior$link$beta$mu) & length(prior$link$beta$mu) < maxBasis ){
+      stop("Incorrect dimention on prior beta (mu).")
+    }
+
+    if (is.null(prior$link$beta$mu)){
+      mubeta <- rep(0, maxBasis)
+    } else{
+      mubeta <- c(prior$link$beta$mu, rep(0, maxBasis - length(prior$link$beta$mu)))
+    }
+
+
+
+    ## Sigma0
+
+    if (is.null(prior$link$beta$Sigma0)){
+      Sigma0 <- diag(1, maxBasis)
+    } else{
+      Sigma0 <- prior$link$beta$Sigma0
+    }
+    if (!is.null(prior$link$beta$Sigma0) & !is.matrix(prior$link$beta$Sigma0)){
+      stop("Prior beta (Sigma0) should be matrix.")
+    }
+
+    Sigma <- diag(1, N)
+
+
+    ## sigma
+    if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
+      stop("Prior sigma2 (shape) has incorrect value.")
+    } else{
+      a_sig <- prior$sigma2$shape
+    }
+
+    if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
+      stop("Prior sigma2 (rate) has incorrect value.")
+    } else{
+      b_sig <- prior$sigma2$rate
+    }
+
+
+    # Initialize
+    ## nu
+    if (!is.null(init$index$nu) & (length(init$index$nu) != p)){
+      stop("Incorrect dimension on initial value of nu.")
+    }
+
+    if (!is.null(init$index$nu) & (!all(init$index$nu %in% c(0, 1)))){
+      stop("nu should consist of 0 or 1.")
+    }
+
+    ## index
+    if (!is.null(init$index$index) & (length(init$index$index) != p)){
+      stop("Incorrect dimension on initial value of index")
+    }
+
+    # seed
+    seedNum <- rep(FALSE, nchain)
+    seedNum <- rep(FALSE, nchain)
+
+    if (!is.logical(setSeed) && !is.numeric(setSeed)) {
+      stop("'setSeed' must be logical or numeric.")
+    }
+
+    if (is.logical(setSeed)) {
+
+      if (length(setSeed) != 1) {
+        stop("If 'setSeed' is logical, it must be length 1.")
+      }
+
+      if (setSeed) {
+        seedNum <- seq_len(nchain)
+      } else {
+        seedNum <- rep(FALSE, nchain)
+      }
+    }
+
+    if (is.numeric(setSeed)) {
+
+      if (length(setSeed) == 1) {
+        seedNum <- rep(setSeed, nchain)
+
+      } else if (length(setSeed) == nchain) {
+        seedNum <- setSeed
+
+      } else {
+        stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
+      }
+    }
+
+    inits_list <- lapply(seq_len(nchain),
+                         function(j) initFunction_bS(nu = init$index$nu, index = init$index$index,
+                                                     k = init$link$k, beta = init$link$beta,
+                                                     sigma2 = init$sigma2, knots = init$link$knots,
+                                                     p = p, X = X, Y = Y, lambda_k = lambda_k,
+                                                     maxknots = maxknots, degree = degree,
+                                                     maxBasis = maxBasis, tau = tau,
+                                                     Sigma0 = Sigma0,setSeed = seedNum[j]))
+    firstInit <- inits_list[[1]]
+
+
+    # Build model
+    message("== Building model ==")
+    suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
+                                                data = list(X = X, Y = Y),
+                                                constants = list(p = p, N = N, r1 = r1, r2 = r2,
+                                                                 lambda_k = lambda_k,maxknots = maxknots,
+                                                                 a_sig = a_sig, b_sig = b_sig, alpha= alpha,
+                                                                 tau = tau, degree = degree, maxBasis = maxBasis,
+                                                                 mubeta = mubeta, Sigma0 = Sigma0, Sigma = Sigma),
+                                                inits = firstInit))
+
+    # Assign samplers
+    message("== Assigning samplers ==")
+    # List that is needed for fitting the model
+    monitorsList <- c("index", "nu", "sigma2", "linkFunction", "beta",
+                      "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
+
+    suppressMessages(mcmcConf <- configureMCMC(simpleModel,
+                                               monitors = monitorsList,
+                                               # logProb = list('Y[1, 1]', 'Y[2, 1]'),
+                                               print = FALSE))
+
+
+    # mcmcConf1$printSamplers(executionOrder= TRUE)
+    mcmcConf$removeSamplers(c("nu"))
+    mcmcConf$addSampler(target = c("nu"),
+                        type   = nuSampler_bspline_sphere)
+
+    mcmcConf$removeSamplers(c("index"))
+    mcmcConf$addSampler(target = c("index"),
+                        type   = indexSampler_bspline_sphere)
+
+    mcmcConf$removeSamplers(c("k", "knots"))
+    mcmcConf$addSampler(target = c("k","knots"),
+                        type   = knotsSampler_bspline_sphere)
+
+    mcmcConf$removeSamplers(c("sigma2"))
+    mcmcConf$addSampler(target = c("sigma2"),
+                        type   = sigma2Sampler_bspline_sphere)
+
+    mcmcConf$removeSamplers(c("beta"))
+    mcmcConf$addSampler(target = c("beta"),
+                        type   = betaSampler_bspline_sphere)
+
+
+
+
+    mcmc1 <- buildMCMC(mcmcConf)
+
+
+
+    if (!sampling){ # not mcmc sampling
+      samples <- NULL
+
+    } else{
+      # Compile
+      start2 <- Sys.time()
+      message("== Compiling model ==")
+      suppressMessages(CsimpleModel <- compileNimble(simpleModel))
+      message("== Compiling samplers ==")
+      suppressMessages(Cmcmc <- compileNimble(mcmc1,
+                                              project = simpleModel,
+                                              resetFunctions = TRUE))
+      end2 <- Sys.time()
+
+      # Sampling
+
+      message("== Running MCMC ==")
+      mcmc.out <- NULL
+      if (is.logical(setSeed)) {
+        seedNum <- setSeed
+      }
+      mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
+                          thin = thin,
+                          nchains = nchain, setSeed = seedNum,
+                          inits = inits_list,
+                          summary = FALSE, samplesAsCodaMCMC = TRUE)
+
+
+      # output
+      ## combine all chains
+      sampMCMC <- mcmc.out
+      samples <- sampleBind(sampMCMC, nchain)
+
+    }
+
+    end1 <- Sys.time()
+
+    # inputOptions <- NULL
+    if (!sampling){
+      time <- NULL
+    } else{
+      # total time - compile time
+      time_wo_compile <- difftime(end1, start1, units = "secs") -
+        difftime(end2, start2, units = "secs")
+
+      time <- list(time_wo_compile = time_wo_compile)
+
+    }
+
+    # Results ------------------------------------------------------------------
+    #Model point estimation
+    modelESTLIST <- bsimFit_pointest(samples, X, Y)
+
+    # input options
+    inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
+                         prior = list(index = list(nu = list(r1 = r1, r2 = r2)),
+                                      link = list(knots = list(lambda_k = lambda_k, maxknots = maxknots),
+                                                  basis = list(degree = degree),
+                                                  beta = list(mu = mubeta, tau = tau, sigma0 = Sigma0)),
+                                      sigma2 = list(shape = a_sig, rate = b_sig)),
+                         init = inits_list,
+                         samplingOptions = list(sampling = sampling,
+                                                monitors = monitors, niter = niter,
+                                                nburnin = nburnin, thin = thin,
+                                                nchain = nchain, setSeed = setSeed),
+                         scaling = list(scale = scale, center = center,
+                                        scaleCenter = scaleCenter, scaleSD = scaleSD),
+                         time = time)
+
+    if (sampling){
+      out <- list(coefficients = modelESTLIST$coefficients,
+                  ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
+                  residuals = modelESTLIST$residuals,
+                  fitted.values = modelESTLIST$fitted.values,
+                  linear.predictors = modelESTLIST$linear.predictors,
+                  gof = modelESTLIST$gof,
+                  samples = sampMCMC, # return of runMCMC
+                  input = inputOptions,
+                  defModel = simpleModel, defSampler = mcmc1,
+                  defCModel = CsimpleModel, defCSampler = Cmcmc,
+                  modelName = "bsSphere")
+
+      class(out) <- "bsim"
+
+
+    } else{
+      out <- list(input = inputOptions,
+                  defModel = simpleModel,
+                  defSampler = mcmc1,
+                  modelName = "bsSphere")
+
+      class(out) <- "bsimSetup"
+
+    }
+    return(out)
+
+  }, finally = {
+    present <- .fns[vapply(.fns, exists, logical(1),
+                           envir = .GlobalEnv, inherits = FALSE)]
+    if (length(present)) rm(list = present, envir = .GlobalEnv)
+    if (length(saved))  list2env(saved, envir = .GlobalEnv)
   })
 
 
-  # Prior parameters
-  ## check data dimension and save
-  ## index - nu
-  if (is.null(prior$index$nu$r1) || is.null(prior$index$nu$r2)){
-    stop("nu prior is not available.")
-  }
-  if (prior$index$nu$r1 <= 0 || prior$index$nu$r2 <= 0){
-    stop("nu prior should be positive.")
-  }
-
-  r1 <- prior$index$nu$r1
-  r2 <- prior$index$nu$r2
-
-  ## link - knots
-  if (is.null(prior$link$knots$lambda_k) || is.null(prior$link$knots$lambda_k)){
-    stop("knots prior is not available.")
-  }
-  if (prior$link$knots$lambda_k <= 0){
-    stop("knots prior should be positive.")
-  }
-
-  lambda_k <- prior$link$knots$lambda_k
-
-  maxknots <- ifelse(is.null(prior$link$knots$maxknots),
-                     qpois(1-0.01, lambda = lambda_k), prior$link$knots$maxknots)
-
-  if (length(maxknots) >= 2 || maxknots < 0){
-    stop("Prior link (maxknots) has incorrect value.")
-  }
-
-  ## link - basis
- if (is.null(prior$link$basis$degree)||length(prior$link$basis$degree) >= 2 || prior$link$basis$degree< 0){
-    stop("Prior basis (degree) has incorrect value.")
-  } else{
-    degree <- prior$link$basis$degree
-  }
-
-  alpha <- rep(1/maxknots, maxknots)
-  maxBasis <- degree + 1 + maxknots
-
-
-  ## beta
-  ## tau
-  tau <- ifelse(is.null(prior$link$beta$tau), N, prior$link$beta$tau)
-  if (length(tau) >= 2 || tau < 0){
-    stop("Prior beta (tau) has incorrect value.")
-  }
-
-  ## mu
-  if (!is.vector(prior$link$beta$mu) & !is.null(prior$link$beta$mu)){
-    stop("Prior beta (mu) should be vector.")
-  }
-  if (!is.null(prior$link$beta$mu) & length(prior$link$beta$mu) < maxBasis ){
-    stop("Incorrect dimention on prior beta (mu).")
-  }
-
-  if (is.null(prior$link$beta$mu)){
-    mubeta <- rep(0, maxBasis)
-  } else{
-    mubeta <- c(prior$link$beta$mu, rep(0, maxBasis - length(prior$link$beta$mu)))
-  }
-
-
-
-  ## Sigma0
-
-  if (is.null(prior$link$beta$Sigma0)){
-    Sigma0 <- diag(1, maxBasis)
-  } else{
-    Sigma0 <- prior$link$beta$Sigma0
-  }
-  if (!is.null(prior$link$beta$Sigma0) & !is.matrix(prior$link$beta$Sigma0)){
-    stop("Prior beta (Sigma0) should be matrix.")
-  }
-
-  Sigma <- diag(1, N)
-
-
-  ## sigma
-  if (is.null(prior$sigma2$shape)||length(prior$sigma2$shape) >= 2 || prior$sigma2$shape < 0){
-    stop("Prior sigma2 (shape) has incorrect value.")
-  } else{
-    a_sig <- prior$sigma2$shape
-  }
-
-  if (is.null(prior$sigma2$rate)||length(prior$sigma2$rate) >= 2 || prior$sigma2$rate < 0){
-    stop("Prior sigma2 (rate) has incorrect value.")
-  } else{
-    b_sig <- prior$sigma2$rate
-  }
-
-
-  # Initialize
-  ## nu
-  if (!is.null(init$index$nu) & (length(init$index$nu) != p)){
-    stop("Incorrect dimension on initial value of nu.")
-  }
-
-  if (!is.null(init$index$nu) & (!all(init$index$nu %in% c(0, 1)))){
-    stop("nu should consist of 0 or 1.")
-  }
-
-  ## index
-  if (!is.null(init$index$index) & (length(init$index$index) != p)){
-    stop("Incorrect dimension on initial value of index")
-  }
-
-  # seed
-  seedNum <- rep(FALSE, nchain)
-  seedNum <- rep(FALSE, nchain)
-
-  if (!is.logical(setSeed) && !is.numeric(setSeed)) {
-    stop("'setSeed' must be logical or numeric.")
-  }
-
-  if (is.logical(setSeed)) {
-
-    if (length(setSeed) != 1) {
-      stop("If 'setSeed' is logical, it must be length 1.")
-    }
-
-    if (setSeed) {
-      seedNum <- seq_len(nchain)
-    } else {
-      seedNum <- rep(FALSE, nchain)
-    }
-  }
-
-  if (is.numeric(setSeed)) {
-
-    if (length(setSeed) == 1) {
-      seedNum <- rep(setSeed, nchain)
-
-    } else if (length(setSeed) == nchain) {
-      seedNum <- setSeed
-
-    } else {
-      stop("Numeric 'setSeed' must be length 1 or equal to 'nchain'.")
-    }
-  }
-
-  inits_list <- lapply(seq_len(nchain),
-                       function(j) initFunction_bS(nu = init$index$nu, index = init$index$index,
-                                                   k = init$link$k, beta = init$link$beta,
-                                                   sigma2 = init$sigma2, knots = init$link$knots,
-                                                   p = p, X = X, Y = Y, lambda_k = lambda_k,
-                                                   maxknots = maxknots, degree = degree,
-                                                   maxBasis = maxBasis, tau = tau,
-                                                   Sigma0 = Sigma0,setSeed = seedNum[j]))
-  firstInit <- inits_list[[1]]
-
-
-  # Build model
-  message("== Building model ==")
-  suppressMessages(simpleModel <- nimbleModel(Rmodelcode,
-                                              data = list(X = X, Y = Y),
-                                              constants = list(p = p, N = N, r1 = r1, r2 = r2,
-                                                               lambda_k = lambda_k,maxknots = maxknots,
-                                                               a_sig = a_sig, b_sig = b_sig, alpha= alpha,
-                                                               tau = tau, degree = degree, maxBasis = maxBasis,
-                                                               mubeta = mubeta, Sigma0 = Sigma0,Sigma = Sigma),
-                                              inits = firstInit))
-
-  # Assign samplers
-  message("== Assigning samplers ==")
-  # List that is needed for fitting the model
-  monitorsList <- c("index", "nu", "sigma2", "linkFunction", "beta",
-                    "k", "knots", "numBasis", "a_alpha", "b_alpha", "Xlin")
-
-  suppressMessages(mcmcConf <- configureMCMC(simpleModel,
-                                             monitors = monitorsList,
-                                             print = FALSE))
-
-
-  # mcmcConf1$printSamplers(executionOrder= TRUE)
-  mcmcConf$removeSamplers(c("nu"))
-  mcmcConf$addSampler(target = c("nu"),
-                       type   = nuSampler_bspline_sphere)
-
-  mcmcConf$removeSamplers(c("index"))
-  mcmcConf$addSampler(target = c("index"),
-                       type   = indexSampler_bspline_sphere)
-
-  mcmcConf$removeSamplers(c("k", "knots"))
-  mcmcConf$addSampler(target = c("k","knots"),
-                       type   = knotsSampler_bspline_sphere)
-
-  mcmcConf$removeSamplers(c("beta"))
-  mcmcConf$addSampler(target = c("beta"),
-                       type   = betaSampler_bspline_sphere)
-
-  mcmcConf$removeSamplers(c("sigma2"))
-  mcmcConf$addSampler(target = c("sigma2"),
-                       type   = sigma2Sampler_bspline_sphere)
-
-
-  mcmc1 <- buildMCMC(mcmcConf)
-
-
-
-  if (!sampling){ # not mcmc sampling
-    samples <- NULL
-
-  } else{
-    # Compile
-    start2 <- Sys.time()
-    message("== Compiling model ==")
-    suppressMessages(CsimpleModel <- compileNimble(simpleModel))
-    message("== Compiling samplers ==")
-    suppressMessages(Cmcmc <- compileNimble(mcmc1,
-                                            project = simpleModel,
-                                            resetFunctions = TRUE))
-    end2 <- Sys.time()
-
-    # Sampling
-
-    message("== Running MCMC ==")
-    mcmc.out <- NULL
-    if (is.logical(setSeed)) {
-      seedNum <- setSeed
-    }
-    mcmc.out <- runMCMC(Cmcmc, niter = niter, nburnin = nburnin,
-                        thin = thin,
-                        nchains = nchain, setSeed = seedNum,
-                        inits = inits_list,
-                        summary = FALSE, samplesAsCodaMCMC = TRUE)
-
-
-    # output
-    ## combine all chains
-    sampMCMC <- mcmc.out
-    samples <- sampleBind(sampMCMC, nchain)
-
-  }
-
-  end1 <- Sys.time()
-
-  # inputOptions <- NULL
-  if (!sampling){
-    time <- NULL
-  } else{
-    # total time - compile time
-    time_wo_compile <- difftime(end1, start1, units = "secs") -
-      difftime(end2, start2, units = "secs")
-
-    time <- list(time_wo_compile = time_wo_compile)
-
-  }
-
-  # Results ------------------------------------------------------------------
-  #Model point estimation
-  modelESTLIST <- bsimFit_pointest(samples, X, Y)
-
-  # input options
-  inputOptions <- list(origdata = list(x = X, y = Y), formula = formula,
-                       prior = list(index = list(nu = list(r1 = r1, r2 = r2)),
-                                    link = list(knots = list(lambda_k = lambda_k, maxknots = maxknots),
-                                                basis = list(degree = degree),
-                                                beta = list(mu = mubeta, tau = tau, sigma0 = Sigma0)),
-                                    sigma2 = list(shape = a_sig, rate = b_sig)),
-                       init = inits_list,
-                       samplingOptions = list(sampling = sampling,
-                                              monitors = monitors, niter = niter,
-                                              nburnin = nburnin, thin = thin,
-                                              nchain = nchain, setSeed = setSeed),
-                       time = time)
-
-  if (sampling){
-    out <- list(coefficients = modelESTLIST$coefficients,
-                ses_coef = modelESTLIST$ses_coef, se = modelESTLIST$se,
-                residuals = modelESTLIST$residuals,
-                fitted.values = modelESTLIST$fitted.values,
-                linear.predictors = modelESTLIST$linear.predictors,
-                gof = modelESTLIST$gof,
-                samples = sampMCMC, # return of runMCMC
-                input = inputOptions,
-                defModel = simpleModel, defSampler = mcmc1,
-                modelName = "bsSphere")
-
-    class(out) <- "bsim"
-
-
-  } else{
-    out <- list(input = inputOptions,
-                defModel = simpleModel,
-                defSampler = mcmc1,
-                modelName = "bsSphere")
-
-    class(out) <- "bsimSetup"
-
-  }
-  return(out)
 
 }

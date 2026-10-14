@@ -15,7 +15,9 @@ gpSpike(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 
 gpSpike_setup(
@@ -28,7 +30,9 @@ gpSpike_setup(
   nburnin = 1000,
   thin = 1,
   nchain = 1,
-  setSeed = FALSE
+  setSeed = FALSE,
+  scale = FALSE,
+  center = FALSE
 )
 }
 \arguments{
@@ -53,6 +57,10 @@ then inspect the variable names stored in the model object using \link{getVarMon
 \item{nchain}{Integer. Number of MCMC chains (default \code{1}).}
 
 \item{setSeed}{Logical or numeric argument.  Further details are provided in \link[nimble]{runMCMC} \code{setSeed} argument.}
+
+\item{scale}{Logical. If \code{TRUE}, columns of predictors are divided by their standard deviation before fitting. Default \code{FALSE}.}
+
+\item{center}{Logical. If \code{TRUE}, columns of predictors are mean-centered before fitting. Default \code{FALSE}.}
 }
 \value{
 A \code{list} typically containing:
@@ -81,10 +89,10 @@ the link \eqn{f(\cdot)} is represented by Gaussian process and the
 where \eqn{\theta} is a p-dimensional index vector subject to a spike-and-slab
 prior for variable selection. The link function \eqn{f(\cdot)} is modeled
 using a Gaussian process prior with zero mean and squared exponential covariance
-kernel \eqn{K(x_1, x_2) = \exp\{-\rho {(x_1 - x_2)^{T}\theta}^2\}},
-where \eqn{\rho} determines the smoothness of \eqn{f}.
+kernel \eqn{K(x_1, x_2) = \exp\{-\frac{{(x_1 - x_2)^{T}\theta}^2}{\gamma}\}},
+where \eqn{\gamma} determines the smoothness of \eqn{f}.
 The covariance kernel is re-parameterized to \eqn{\exp\{-{(x_1 - x_2)^{T}\theta^{*}}^2\}} where
-\eqn{\rho = ||\theta^{*}||} and
+\eqn{\gamma = \frac{1}{||\theta^{*}||}} and
 \eqn{\theta = ||\theta||^{-1}\theta^{*}}.
 Therefore, \eqn{\theta^{*}} is sampled in MCMC.
 
@@ -101,7 +109,7 @@ inducing \eqn{p(\nu) \propto \mathrm{Beta}(r_1 + n_\nu, r_2 + p - n_\nu)} where 
 \strong{Sampling} A random walk Metropolis algorithm is used to sample \eqn{\lambda^{-1}}
 and a Metropolis-Hastings algorithm is used for the main parameters \eqn{(\theta^{*}, \nu)}.
 The variance \eqn{\sigma^2} is directly sampled from posterior distribution.
-\eqn{f} is not directly sampled by MCMC.
+\eqn{f} is not directly sampled by MCMC. A large number of total iterations is required to achieve convergence, and thinning may therefore be necessary.
 
 \strong{Prior hyper-parameters}
 These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
@@ -129,6 +137,8 @@ These are the initial values set in the function. You can define new values for 
 \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
 
 }
+\strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
+In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.
 }
 \examples{
 \donttest{
@@ -145,17 +155,17 @@ colnames(simdata) <- c(paste0("X", 1:4), "y")
 
 # One tool version
 fit1 <- gpSpike(y ~ ., data = simdata,
-               niter = 5000, nburnin = 1000)
+               niter = 10000, nburnin = 5000, thin = 40)
 
 # Split version
 models <- gpSpike_setup(y ~ ., data = simdata)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 40,
                     nchains = 1, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 }
 

@@ -202,7 +202,7 @@ MH_thetaeta <- nimbleFunction(
     Rthetaprime <- Stheta-Stheta %*% inverse(Stheta+Sigmathetaprime) %*% Stheta
     Rthetaprime <- (Rthetaprime + t(Rthetaprime))/2
     LRthetaprime <- t(chol(Rthetaprime))
-    mtheta_gprime <- Rtheta %*% inverse(Stheta) %*% g
+    mtheta_gprime <- Rthetaprime %*% inverse(Stheta) %*% g ##
     newetaMat <- LRthetaprime %*% etaLatent + mtheta_gprime
     neweta   <- newetaMat[ ,1]
     # nimCat("New eta:", neweta[1:10], "\n")
@@ -240,7 +240,7 @@ MH_thetaeta <- nimbleFunction(
                         prec_param = FALSE, log=TRUE) -
             dmnorm_chol(g, mean=rep(0,N),
                         cholesky = chol(Sigmatheta+Rtheta), prec_param = FALSE, log=TRUE)) +
-      reversetrans - righttrans + thetaPrior(newtheta[,1]*pi) - thetaPrior((model$psi)*pi)
+      reversetrans - righttrans + thetaPrior(newtheta[,1]*pi) - thetaPrior((oldtheta)*pi) ##
 
     ratio <- exp(L)
     # nimCat("ratio: ", ratio, "\n")

@@ -7,7 +7,7 @@
 \usage{
 as_bsim(object, mcmc.out, ...)
 
-\method{as_bsim}{bsimSetup}(object, mcmc.out, ...)
+\method{as_bsim}{bsimSetup}(object, mcmc.out, Ccompile, ...)
 }
 \arguments{
 \item{object}{A \code{BayesSIM} setup object, typically the output of a
@@ -16,6 +16,8 @@ as_bsim(object, mcmc.out, ...)
 \item{mcmc.out}{MCMC output corresponding to the result of a call to \code{runMCMC()}.}
 
 \item{...}{Additional arguments passed to other methods.}
+
+\item{Ccompile}{Result of \code{compileModelAndMCMC()} which includes compiled object of the model and the sampler.}
 }
 \value{
 An object of class \code{"bsim"} containing posterior samples,
@@ -33,14 +35,14 @@ that can be used with generic functions such as \code{summary()}, \code{plot()},
 \examples{
 \donttest{
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
-models <- BayesSIM_setup(y ~ ., data = simdata2)
+models <- BayesSIM_setup(y ~ ., data = simdata2, nchain = 2)
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                   nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                   nchains = 2, setSeed = TRUE, inits = initList,
                    summary = TRUE, samplesAsCodaMCMC = TRUE)
-fit2 <- as_bsim(models, mcmc.out)
+fit2 <- as_bsim(models, mcmc.out, Ccompile)
 summary(fit2)
 }
 }

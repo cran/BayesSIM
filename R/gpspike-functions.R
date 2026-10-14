@@ -384,7 +384,7 @@ pred_gpSpike <- nimbleFunction(
 
       # 4. Sampling
       if (prediction == 1){ # latent
-        cholpredcov <- chol(Sigcov)
+        cholpredcov <- chol(Sigcov * currSigma)
         testPred[i,] <- t(rmnorm_chol(1, mean = mu[,1], cholesky = cholpredcov,
                                       prec_param  = FALSE))
 

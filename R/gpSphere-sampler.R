@@ -14,6 +14,7 @@ indexSampler_gpSphere <- nimbleFunction(
                             cholesky = covMat,
                             prec_param = FALSE)
     proposal <- proposal/sqrt(sum(proposal^2))
+
     if (proposal[1] < 0){
       proposal <- proposal * (-1)
     }

@@ -538,14 +538,14 @@ pred_bsplineSphere <- nimbleFunction(
         idxmax <- (sampleZ[,1] > (maxb[i]))
 
         if (sum(idxmin) != 0){
-          cat("pass min \n")
+          # cat("pass min \n")
           minVal_idx <- which(XlinSample[i,] == min(XlinSample[i,]))
           predmin <- min(pred[1, minVal_idx])
           pred[1, idxmin] <- nimRep(predmin, sum(idxmin))
         }
 
         if (sum(idxmax) != 0){
-          cat("pass max \n")
+          # cat("pass max \n")
           maxVal_idx <- which(XlinSample[i,] == max(XlinSample[i,]))
           predmax <- max(pred[1, maxVal_idx])
           pred[1, idxmax] <- nimRep(predmax, sum(idxmax))

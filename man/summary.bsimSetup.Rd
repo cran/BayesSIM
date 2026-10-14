@@ -39,18 +39,18 @@ including the model name, data dimensions, prior settings, and sampling options.
 \donttest{
 simdata2 <- data.frame(DATA1$X, y = DATA1$y)
 
-models <- BayesSIM_setup(y ~ ., data = simdata2)
+models <- BayesSIM_setup(y ~ ., data = simdata2, nchain = 2)
 summary(models)
 
 Ccompile <- compileModelAndMCMC(models)
 nimSampler <- getSampler(Ccompile)
 initList <- getInit(models)
-mcmc.out <- runMCMC(nimSampler, niter = 5000, nburnin = 1000, thin = 1,
-                    nchains = 1, setSeed = TRUE, inits = initList,
+mcmc.out <- runMCMC(nimSampler, niter = 10000, nburnin = 5000, thin = 1,
+                    nchains = 2, setSeed = TRUE, inits = initList,
                     summary = TRUE, samplesAsCodaMCMC = TRUE)
 
 # "fit_split" becomes the class of "bsim".
-fit_split <- as_bsim(models, mcmc.out)
+fit_split <- as_bsim(models, mcmc.out, Ccompile)
 
 }
 

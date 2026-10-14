@@ -11,6 +11,7 @@ test_that("bsim and bsimSetup constructors create correct classes", {
     samples      = NULL,
     model        = NULL,
     sampler      = NULL,
+    Cmodel = NULL, Csampler = NULL,
     modelName    = "bsFisher"
   )
 
@@ -51,8 +52,72 @@ test_that("bsim.predict constructor builds bsimPred object", {
   expect_equal(length(obj$idxValue), 3)
 })
 
+
+# tests/testthat/test-predict-bsim.R
+
+library(testthat)
+library(BayesSIM)
+
+setup_fit <- function(seed = 1) {
+  set.seed(seed)
+  data(DATA1, package = "BayesSIM")
+  simdata <- data.frame(DATA1$X, y = DATA1$y)
+
+  fit <- BayesSIM(
+    y ~ ., data = simdata,
+    niter = 500, nburnin = 100, nchain = 1
+  )
+
+  list(fit = fit, data = simdata)
+}
+
+test_that("Test predict.bsim() for newdata with reorders, including missing values, and unrelated columns (y ~ .)", {
+  s <- setup_fit()
+  fit <- s$fit
+  simdata <- s$data
+
+  pred_original <- predict(fit, newdata = simdata, type = "index")
+
+  # reorderd
+  reordered <- simdata[, c(3, 1, 4, 2, 5)]
+  pred_reordered <- predict(fit, newdata = reordered, type = "index")
+
+  expect_equal(pred_original$fitted, pred_reordered$fitted,
+               info = "Predictions must be invariant to column reordering.")
+
+  # missing
+  set.seed(123)
+  data_miss <- simdata
+  idx <- sample(seq_len(nrow(simdata)), size = 20)
+  data_miss[idx[1:5],   1] <- NA
+  data_miss[idx[6:10],  2] <- NA
+  data_miss[idx[11:15], 3] <- NA
+  data_miss[idx[16:20], 4] <- NA
+
+  expect_error(
+    predict(fit, newdata = data_miss, type = "index"),
+    regexp = "[Mm]issing"
+  )
+
+
+  # unrelated columns
+  set.seed(42)
+  data_irr <- simdata
+  data_irr$X5 <- rnorm(nrow(simdata))
+  data_irr$X6 <- rnorm(nrow(simdata))
+  data_irr <- data_irr[, c("X1", "X2", "X3", "X4", "X5", "X6", "y")]
+
+  pred_irr <- predict(fit, newdata = data_irr, type = "index")
+
+  expect_equal(pred_original$fitted, pred_irr$fitted,
+               info = "Extra columns must not affect predictions.")
+
+
+})
+
+
+
 test_that("as_bsim combines setup and samples using sampleBind and bsimFit_pointest", {
-  skip_if_not_installed("coda")
 
   # dummy setup object (bsimSetup-like)
   X <- matrix(rnorm(4), ncol = 2)
@@ -98,7 +163,7 @@ test_that("as_bsim combines setup and samples using sampleBind and bsimFit_point
     .env = env_as
   )
 
-  fit <- as_bsim(setup, mcmc_out)
+  fit <- as_bsim(setup, mcmc_out, Ccompile = NULL)
 
   expect_s3_class(fit, "bsim")
   expect_equal(fit$modelName, "bsFisher")
@@ -148,19 +213,20 @@ test_that("coef.bsim returns mean coefficients and SE when requested", {
     ses_coef     = c(0.1, 0.2),
     input = list(
       origdata = list(x = xData),
-      samplingOptions = list(nchain = 1)
+      samplingOptions = list(nchain = 1),
+      scaling = list(scale = FALSE)
     ),
     samples = NULL
   )
   class(obj) <- "bsim"
 
   # method = "mean"
-  co <- coef.bsim(obj, method = "mean", se = FALSE)
+  co <- coef.bsim(obj, method = "mean", error = FALSE)
   expect_equal(co, obj$coefficients)
 
-  co_se <- coef.bsim(obj, method = "mean", se = TRUE)
+  co_se <- coef.bsim(obj, method = "mean", error = TRUE)
   expect_true(is.matrix(co_se))
-  expect_equal(rownames(co_se), c("Estimate (mean)", "SE"))
+  expect_equal(rownames(co_se), c("Estimate (mean)", "SD"))
 })
 
 test_that("coef.bsim with median uses sampleBind and MAD", {
@@ -181,7 +247,8 @@ test_that("coef.bsim with median uses sampleBind and MAD", {
     ses_coef     = c(0.1, 0.2),
     input = list(
       origdata = list(x = X),
-      samplingOptions = list(nchain = 1)
+      samplingOptions = list(nchain = 1),
+      scaling = list(scale = FALSE, center = FALSE)
     ),
     samples = samples
   )
@@ -193,7 +260,7 @@ test_that("coef.bsim with median uses sampleBind and MAD", {
     .env = env_coef
   )
 
-  med <- coef.bsim(obj, method = "median", se = FALSE)
+  med <- coef.bsim(obj, method = "median", error = FALSE)
   expect_equal(length(med), 2)
   expect_equal(names(med), colnames(X))
 })
@@ -303,7 +370,8 @@ test_that("summary.bsim produces summary.bsim object and print works", {
   obj <- list(
     input = list(
       origdata = list(x = X, y = Y),
-      samplingOptions = list(nchain = 1, monitors = NULL)
+      samplingOptions = list(nchain = 1, monitors = NULL),
+      scaling = list(scale = FALSE, center = FALSE)
     ),
     samples   = samples,
     modelName = "bsFisher"
@@ -339,7 +407,8 @@ test_that("nimTraceplot returns a ggplot object", {
   obj <- list(
     input = list(
       origdata = list(x = X, y = Y),
-      samplingOptions = list(nchain = 1, monitors = NULL)
+      samplingOptions = list(nchain = 1, monitors = NULL),
+      scaling = list(scale = FALSE, center = FALSE)
     ),
     samples   = samples,
     modelName = "bsFisher"
