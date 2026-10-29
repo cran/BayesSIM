@@ -1,4 +1,3 @@
-
 dKnotsSimple <- nimble::nimbleFunction(
   run = function(x = double(1), a = double(0), b = double(0), k = double(0),
                  alpha = double(1), log = integer(0, default = 0)) {
@@ -12,8 +11,15 @@ dKnotsSimple <- nimble::nimbleFunction(
       for (i in 2:K) {
         gaps[i] <- x[i] - x[i-1]
       }
-      gaps[K+1] <- b - x[K]
     }
+    gaps[K+1] <- b - x[K]
+
+    for (i in 1:(K+1)) {
+      if (gaps[i] <= 0) {
+        if (log) return(-Inf) else return(0)
+      }
+    }
+
     gaps <- gaps / (b - a)
 
     alpha_full <- c(real_alpha, 1.0)

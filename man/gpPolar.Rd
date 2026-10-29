@@ -152,8 +152,8 @@ distributions using Gibbs sampling.
 Since \eqn{\kappa} is sampled by grid search, more than 5 dimension of variables \code{gpPolarHigh} is recommended.
 For \code{gpPolarHigh}, all sampling parameters' samplers are assigned by nimble.
 
-\strong{Prior hyper-parameters}
-These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\strong{Prior hyperparameters}
+These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
 \item Index vector: Only shape parameter \code{index_psi_alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
 By default, the shape parameter for each element of the polar vector is set to \code{5000}.
@@ -161,9 +161,9 @@ By default, the shape parameter for each element of the polar vector is set to \
 \item Link function:
 \code{link_kappa_min} is minimum value of kappa (default \code{0.5}), \code{link_kappa_max} is maximum value of kappa (default \code{4}),
 and \code{link_kappa_grid_width} is space (default \code{0.1}).
-\item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
-where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
-(default \code{sigma2_shape = 2, sigma2_rate = 0.01})
+\item Error variance: An Inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution
+(default \code{sigma2_shape = 2, sigma2_rate = 0.01}).
 }
 
 \strong{Initial values}
@@ -171,8 +171,8 @@ These are the initial values set in the function. You can define new values for 
 \enumerate{
 
 \item Index vector: Initial vector of polar angle \code{index_psi} with \eqn{p-1} dimension. Each element of angle is between 0 and \eqn{\pi}.
-\item Link function: Initial scalar scale parameter of covariance kernel \code{link_kappa}. (default: \code{2})
-\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
+\item Link function: Initial scalar scale parameter of covariance kernel \code{link_kappa} (default \code{2}).
+\item Error variance (\code{sigma2}): Initial scalar error variance (default \code{0.01}).
 }
 
 \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.

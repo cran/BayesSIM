@@ -33,19 +33,20 @@ If \code{method == "median"}, posterior median absolute deviation is calculated.
 is the default.
 \describe{
 \item{\code{"response"}}{
-Posterior predictive summaries of the response \eqn{Y}.
+Posterior predictive summaries of the response \eqn{\boldsymbol{Y}}.
 This corresponds to draws from the posterior predictive distribution
-\eqn{Y^{(m)} \sim N(f(X'\theta^{(m)}), \sigma^{2(m)})}
+\eqn{\boldsymbol{Y}^{(m)} \sim N(f(\boldsymbol{X}\boldsymbol{\theta}^{(m)}),
+    \sigma^{2(m)})}
 and therefore incorporates both the uncertainty in the link function
 and the variability of the error term for each \eqn{m^{th}} MCMC sample.}
 \item{\code{"latent"}}{
 Posterior summaries of the latent mean structure
-\eqn{E(Y \mid X) = f^{(m)}(t^{(m)})}, where \eqn{t^{(m)} = X'\theta^{(m)}}.
+\eqn{E(\boldsymbol{Y} \mid \boldsymbol{X}) = f^{(m)}(t^{(m)})}, where \eqn{t^{(m)} = \boldsymbol{X}\theta^{(m)}}.
 Unlike \code{"response"}, it excludes the noise term and calculated by
-\eqn{f^{(m)}(X'\theta^{(m)})} for each \eqn{m^{th}} MCMC sample of
-\eqn{\theta}.}
+\eqn{f^{(m)}(\boldsymbol{X}\boldsymbol{\theta}^{(m)})} for each \eqn{m^{th}} MCMC sample of
+\eqn{\boldsymbol{\theta}}.}
 \item{\code{"index"}}{
-Posterior summaries of the single index \eqn{t^{(m)} = X'\theta^{(m)}}.}
+Posterior summaries of the single index \eqn{\boldsymbol{t}^{(m)} = \boldsymbol{X\theta}^{(m)}}.}
 }}
 
 \item{method}{Character string determining the posterior summary used for
@@ -85,22 +86,22 @@ Generate predictions from a fitted Bayesian single-index model.
 This method extracts MCMC posterior samples stored in a BayesSIM object
 and computes posterior summaries as follows:
 \itemize{
-\item \code{type = "response"}: the \strong{posterior predictive response} \eqn{Y \mid X}
-\item \code{type = "latent"}: the \strong{latent link function} evaluation \eqn{E(Y \mid X) = f(X'\theta)}
-\item \code{type = "index"}: the \strong{single index} \eqn{X'\theta}
+\item \code{type = "response"}: the \strong{posterior predictive response} \eqn{\boldsymbol{Y} \mid \boldsymbol{X}}
+\item \code{type = "latent"}: the \strong{latent link function} evaluation \eqn{E(\boldsymbol{Y} \mid \boldsymbol{X}) = f(\boldsymbol{X\theta})}
+\item \code{type = "index"}: the \strong{single index} \eqn{\boldsymbol{X\theta}}
 }
 
 The key distinction is that \code{"response"} incorporates the posterior
 variability of the error term \eqn{\epsilon}, whereas \code{"latent"} represents
-the noiseless conditional expectation \eqn{E(Y \mid X)} computed directly
-from the link function and the posterior draws of \eqn{\theta}.
+the noiseless conditional expectation \eqn{E(\boldsymbol{Y} \mid \boldsymbol{X})} computed directly
+from the link function and the posterior draws of \eqn{\boldsymbol{\theta}}.
 
 When \code{interval = "credible"}, the returned object includes lower and upper
 credible bounds computed via posterior quantiles for the chosen prediction
 scale.
 
 If \code{newdata} is supplied, predictions are evaluated at the new covariate
-values by computing the corresponding posterior index \eqn{t = X'\theta}
+values by computing the corresponding posterior index \eqn{\boldsymbol{t} = \boldsymbol{X\theta}}
 and applying the link function.
 }
 \examples{

@@ -1,7 +1,7 @@
 #' Bayesian Single-Index Regression with Gaussian Process Link and Spike-and-Slab Prior
 #'
 #' @description Fits a single-index model \eqn{Y_i \sim \mathcal{N}(f(X_i'\theta), \sigma^2), i = 1,\cdots,n},
-#' where index vector \eqn{\theta} has a spike and slab prior and
+#' where index vector \eqn{\theta} has a spike-and-slab prior and
 #' the link \eqn{f(\cdot)} is represented by Gaussian process and the
 #'
 #' @inheritParams bsFisher
@@ -33,17 +33,17 @@
 #' The variance \eqn{\sigma^2} is directly sampled from posterior distribution.
 #' \eqn{f} is not directly sampled by MCMC. A large number of total iterations is required to achieve convergence, and thinning may therefore be necessary.
 #'
-#' \strong{Prior hyper-parameters}
-#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \strong{Prior hyperparameters}
+#' These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 #' \enumerate{
 #' \item Index vector: \code{index_r1, index_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
 #'     For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
-#'     \item Link function: Inverse gamma prior is assigned for hyper-parameters \eqn{\lambda^{-1}}
-#'     `link_inv_lambda_shape` is shape parameter and `link_inv_lambda_rate` is rate parameter of inverse gamma distribution.
-#'     (default \code{link_inv_lambda_shape = 1, link_inv_lambda_rate = 0.1})
-#'     \item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
-#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
-#'         (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
+#'     \item Link function: Inverse gamma prior is assigned for hyper-parameters \eqn{\lambda^{-1}} where
+#'     `link_inv_lambda_shape` is shape parameter and `link_inv_lambda_rate` is rate parameter of inverse gamma distribution
+#'     (default \code{link_inv_lambda_shape = 1, link_inv_lambda_rate = 0.1}).
+#'     \item Error variance: An Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution
+#'         (default \code{sigma2_shape = 0.001, sigma2_rate = 0.001}).
 #' }
 #'
 #' \strong{Initial values}
@@ -51,12 +51,12 @@
 #' \enumerate{
 #' \item Index vector:
 #' \itemize{
-#'      \item{\code{index_pi}: Initial selecting variable probability. (default: \code{0.5})}
-#'      \item{\code{index_nu}: Initial vector of inclusion indicators . By default, each \code{index_nu} is randomly drawn by  \eqn{Bernoulli(1/2)}}
+#'      \item{\code{index_pi}: Initial selecting variable probability (default: \code{0.5}).}
+#'      \item{\code{index_nu}: Initial vector of inclusion indicators. By default, each \code{index_nu} is randomly drawn by  \eqn{Bernoulli(1/2)}.}
 #'      \item{\code{index}: Initial vector of index. By default, each element of index vector, which is chosen by indicator, is proposed by normal distribution.}
 #' }
 #' \item Link function: Initial scalar of lambda (\code{link_inv_lambda}) for covariance kernel of Gaussian process.
-#' \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{0.01})
+#' \item Error variance (\code{sigma2}): Initial scalar error variance (default: \code{0.01}).
 #'
 #' }
 #'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.

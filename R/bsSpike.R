@@ -26,19 +26,19 @@
 #' \strong{Sampling}
 #' All samplers are automatically assigned by nimble.
 #'
-#' \strong{Prior hyper-parameters}
-#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \strong{Prior hyperparameters}
+#' These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 #' \enumerate{
-#' \item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+#' \item Index vector: \code{index_r1, index_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
 #'     For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
 #'     \item Link function: B-spline basis and coefficient of B-spline setup.
 #'          \itemize{
 #'          \item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
 #'          \item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean (\eqn{\boldsymbol{\mu_\beta}}) \code{link_beta_mu}, covariance (\eqn{\Sigma_0}) \code{link_beta_Sigma0},
 #'          scale parameter (\eqn{\tau}) \code{link_beta_tau}.
-#'          By default, By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
+#'          By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
 #' }
-#'   \item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'   \item Error variance:  Inverse gamma prior is assigned to \eqn{\sigma^2}
 #'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
 #'         (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
 #'         }
@@ -48,8 +48,8 @@
 #' \enumerate{
 #' \item Index vector:
 #'      \itemize{
-#'      \item{\code{index_pi} Initial selecting variable probability. (default: \code{0.5})}
-#'      \item{\code{index_nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
+#'      \item{\code{index_pi} Initial selecting variable probability (default: \code{0.5}). }
+#'      \item{\code{index_nu} Initial vector of inclusion indicators. By default, each \code{nu} is randomly drawn by  \eqn{Bernoulli(1/2)}}
 #'      \item{\code{index} Initial vector of index. By default, each element of index vector, which is chosen by \eqn{\nu}, is proposed by normal distribution.}
 #'      }
 #'      \item Link function: Initial spline coefficients (\code{link_beta}). By default,
@@ -248,36 +248,6 @@ bsSpike.default <- function(formula, data,
     N <- length(Y)
     p <- ncol(X)
 
-
-    # Model code
-    # Rmodel <- nimbleCode({
-    #   # thetastar: spike and slab
-    #   pi ~ dbeta(a0, b0)
-    #   for (j in 1:p) {
-    #     nu[j] ~ dbern(pi)
-    #     index_raw[j] ~ dnorm(0, sd = sigma_theta)
-    #     index_temp[j] <- index_raw[j] * nu[j] + 1e-10
-    #   }
-    #   index[1:p] <- index_temp[1:p]/sqrt(sum(index_temp[1:p]^2))
-    #
-    #   # Linear predictor
-    #   for (i in 1:N){
-    #     Xlin[i] <- sum(X[i, 1:p] * index[1:p])
-    #   }
-    #
-    #   # Design matrix - b spline basis
-    #   Xmat[1:N, 1:df] <- transX_fisher(Xlin[1:N], df = df, degree = degree, delta = delta)
-    #
-    #   # likelihoods
-    #   sigma2 ~ dinvgamma(a_sig, b_sig)
-    #   beta[1:df, 1] ~ dmnorm(mubeta[1:df], cov = covbeta[1:df, 1:df])
-    #   linkFunction[1:N, 1] <- Xmat[1:N, 1:df] %*% beta[1:df, 1]
-    #   for (i in 1:N){
-    #     Y[i, 1] ~ dnorm(linkFunction[i, 1], var = sigma2)
-    #   }
-    #
-    # })
-
     Rmodel <- nimbleCode({
       # thetastar: spike and slab
       pi ~ dbeta(a0, b0)
@@ -310,20 +280,20 @@ bsSpike.default <- function(formula, data,
     # Prior parameters
     ## check data dimension and save
     ## index: theta
-    if (is.null(prior$index$nu$r1)||
-        length(prior$index$nu$r1) >= 2 ||
-        prior$index$nu$r1 < 0){
+    if (is.null(prior$index$r1)||
+        length(prior$index$r1) >= 2 ||
+        prior$index$r1 < 0){
       stop("Prior index (r1) has incorrect value.")
     } else{
-      a0 <- prior$index$nu$r1
+      a0 <- prior$index$r1
     }
 
-    if (is.null(prior$index$nu$r2)||
-        length(prior$index$nu$r2) >= 2 ||
-        prior$index$nu$r2 < 0){
+    if (is.null(prior$index$r2)||
+        length(prior$index$r2) >= 2 ||
+        prior$index$r2 < 0){
       stop("Prior index (r2) has incorrect value.")
     } else{
-      b0 <- prior$index$nu$r2
+      b0 <- prior$index$r2
     }
 
     if (is.null(prior$index$sigma_theta)||
@@ -543,7 +513,7 @@ bsSpike.default <- function(formula, data,
     }
     end1 <- Sys.time()
 
-    ## Input options 정리
+    ## Input options
     if (!sampling){
       time <- NULL
     } else{

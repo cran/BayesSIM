@@ -226,7 +226,7 @@ prior_param_default <- function(indexprior, link){
                         sigma2 = list(shape = 0.001, rate = 100))
 
     } else if (indexprior == "spike"){
-      priorList <- list(index = list(nu = list(r1 = 1, r2 = 1), sigma_theta = 0.25),
+      priorList <- list(index = list(r1 = 1, r2 = 1, sigma_theta = 0.25),
                         link = list(basis = list(df = 21, degree = 2, delta = 0.01),
                                     beta = list(mu = NULL, tau = NULL, Sigma0 = NULL)),
                         sigma2 = list(shape = 0.001, rate = 100))

@@ -105,19 +105,19 @@ multivariate normal distribution with mean \eqn{\boldsymbol{\mu_\beta}}, and cov
 \strong{Sampling}
 All samplers are automatically assigned by nimble.
 
-\strong{Prior hyper-parameters}
-These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\strong{Prior hyperparameters}
+These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
-\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
+\item Index vector: \code{index_r1, index_r2} gives the shape and rate parameter of beta-binomial prior, respectively.
 For slab prior, normal distribution with zero mean is assigned for selected variables \eqn{\theta}. \code{index_sigma_theta} is for variance of \eqn{\theta}, and it is assigned 0.25 by default.
 \item Link function: B-spline basis and coefficient of B-spline setup.
 \itemize{
 \item{basis: For the basis of B-spline, \code{link_basis_df} is the number of basis functions (default \code{21}), \code{link_basis_degree} is the spline degree (default \code{2}) and \code{link_basis_delta} is a small jitter for boundary-knot spacing control (default \code{0.01}).}
 \item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean (\eqn{\boldsymbol{\mu_\beta}}) \code{link_beta_mu}, covariance (\eqn{\Sigma_0}) \code{link_beta_Sigma0},
 scale parameter (\eqn{\tau}) \code{link_beta_tau}.
-By default, By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
+By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
 }
-\item Error variance (\code{sigma2}):  Inverse gamma prior is assigned to \eqn{\sigma^2}
+\item Error variance:  Inverse gamma prior is assigned to \eqn{\sigma^2}
 where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
 (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
 }
@@ -127,8 +127,8 @@ These are the initial values set in the function. You can define new values for 
 \enumerate{
 \item Index vector:
 \itemize{
-\item{\code{index_pi} Initial selecting variable probability. (default: \code{0.5})}
-\item{\code{index_nu} Initial vector of inclusion indicators . By default, each nu is randomly drawn by  \eqn{Bernoulli(1/2)}}
+\item{\code{index_pi} Initial selecting variable probability (default: \code{0.5}). }
+\item{\code{index_nu} Initial vector of inclusion indicators. By default, each \code{nu} is randomly drawn by  \eqn{Bernoulli(1/2)}}
 \item{\code{index} Initial vector of index. By default, each element of index vector, which is chosen by \eqn{\nu}, is proposed by normal distribution.}
 }
 \item Link function: Initial spline coefficients (\code{link_beta}). By default,

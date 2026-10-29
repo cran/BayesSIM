@@ -3,7 +3,7 @@
 \name{gpSphere}
 \alias{gpSphere}
 \alias{gpSphere_setup}
-\title{Bayesian Single-Index Regression with Gaussian Process Link and Unit Sphere Prior}
+\title{Bayesian Single-Index Regression with Gaussian Process Link and Uniform Prior on Unit Sphere}
 \usage{
 gpSphere(
   formula,
@@ -104,14 +104,14 @@ the index \eqn{\theta} lies on the unit sphere, and the link \eqn{f(\cdot)} is r
 with Gaussian process.
 }
 \details{
-\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_l)^2}{\gamma})} as a link function, where \eqn{t_i, t_l, i, l = 1, \ldots, n} is index value.
+\strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_l)^2}{\gamma})} as a link function, where \eqn{t_i, t_l, (i, l = 1, \ldots, n)} is index value.
 Index vector should be length 1.
 
 \strong{Priors}
 \itemize{
-\item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
+\item Uniform prior on the unit sphere for the index \eqn{\boldsymbol{\theta}}.
 \item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
-Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_{\gamma}} and rate parameter \eqn{\beta_{\gamma}}.
+Length-scale parameter, \eqn{\gamma}, follows gamma distribution with shape parameter \eqn{\alpha_{\gamma}} and rate parameter \eqn{\beta_{\gamma}}.
 \item Inverse-Gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 
 }
@@ -130,21 +130,21 @@ via Gibbs sampling.
 
 For estimation via MAP, effective sample size or potential scale reduction factor is meaningless.
 
-\strong{Prior hyper-parameters}
-These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\strong{Prior hyperparameters}
+These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
 \item Index vector: Nothing to assign.
 \item Link function:
 \itemize{
 \item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{\gamma}.
-\code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
+\code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale} (default \code{1/8}).}
 \item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
-\code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
+\code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance (default \code{1}).}
 }
 
-\item Error variance (\code{sigma2}): inverse gamma prior is assigned to \eqn{\sigma^2}
-where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
-(default \code{sigma2_shape = 1, sigma2_rate = 1})
+\item Error variance: inverse gamma prior is assigned to \eqn{\sigma^2}
+where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution
+(default \code{sigma2_shape = 1, sigma2_rate = 1}).
 
 }
 
@@ -152,9 +152,9 @@ where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate para
 These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
 \enumerate{
 \item Index vector (\code{index}): Initial unit index vector. By default, vector is randomly drawn from normal distribution and standardized.
-\item Link function: \code{link_lengthscale} is initial scalar length-scale parameter. (default: \code{0.1})
-\code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
-\item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
+\item Link function: \code{link_lengthscale} is initial scalar length-scale parameter (default \code{0.1}).
+\code{link_amp} is initial scalar amplitude parameter (default \code{1}).
+\item Error variance (\code{sigma2}): Initial scalar error variance (default \code{1}).
 
 }
 

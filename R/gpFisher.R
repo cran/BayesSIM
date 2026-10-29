@@ -8,49 +8,48 @@
 #' @inheritParams bsFisher
 #'
 #' @details
-#' \strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_l)^2}{\gamma})} as a link function, where \eqn{t_i, t_l, i, l = 1, \ldots, n} is index value.
+#' \strong{Model} The single-index model uses Gaussian process with zero mean and and covariance kernel \eqn{\eta \cdot \text{exp}(-\frac{(t_i-t_l)^2}{\gamma})} as a link function, where \eqn{t_i, t_l, (i, l = 1, \ldots, n)} is index value.
 #' Index vector should be length 1.
 #'
 #' \strong{Priors}
 #' \itemize{
 #' \item von Mises–Fisher prior on the index \eqn{\theta} with direction and concentration.
 #' \item Covariance kernel: Amplitude, \eqn{\eta}, follows log normal distribution with mean \eqn{a_\eta} and variance \eqn{b_\eta}.
-#' Length-scale parameter follows gamma distribution with shape parameter \eqn{\alpha_{\gamma}} and rate parameter \eqn{\beta_{\gamma}}.
+#' Length-scale parameter, \eqn{\gamma}, follows gamma distribution with shape parameter \eqn{\alpha_{\gamma}} and rate parameter \eqn{\beta_{\gamma}}.
 #' \item Inverse gamma prior on \eqn{\sigma^2} with shape parameter \eqn{a_\sigma} and rate parameter \eqn{b_\sigma}.
 #'
 #' }
 #'
 #' \strong{Sampling} All sampling parameters' samplers are assigned by nimble.
 #'
-#' \strong{Prior hyper-parameters}
-#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \strong{Prior hyperparameters}
+#' These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 #' \enumerate{
-#'   \item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta} (\code{index}).
+#'   \item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta}.
 #'         \code{index_direction} is a unit direction vector of the von Mises--Fisher distribution.
 #'         By default, the estimated vector from projection pursuit regression is assigned.
-#'         \code{index_dispersion} is the positive concentration parameter. By default, \code{150} is assigned.
+#'         \code{index_dispersion} is the positive concentration parameter (default \code{150}).
 #'
 #' \item Link function:
 #' \itemize{
 #'    \item{Length-scale:Gamma distribution is assigned for length-scale parameter, \eqn{\gamma}.
-#'     \code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale}. (default \code{1/8})}
+#'     \code{link_lengthscale_shape} is shape parameter (default \code{1/8}) and \code{link_lengthscale_rate} is rate parameter of \code{lengthscale} (default \code{1/8}.)}
 #'     \item{Amplitude: Log-normal distribution is assigned for amplitude parameter, \eqn{\eta}.
-#'      \code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance. (default \code{1})}
+#'      \code{link_amp_a} is mean (default \code{-1}), and \code{link_amp_b} is variance (default \code{1}).}
 #' }
 #'
-#' \item Error variance (\code{sigma2}): An inverse-gamma prior is assigned to \eqn{\sigma^2}
-#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
-#'         (default \code{sigma2_shape = 1, sigma2_rate = 1})
-#'         }
+#' \item Error variance: An inverse-gamma prior is assigned to \eqn{\sigma^2}
+#'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution
+#'         (default \code{sigma2_shape = 1, sigma2_rate = 1}).}
 #'
 #'
 #' \strong{Initial values}
 #' These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
 #' \enumerate{
 #'       \item Index vector (\code{index}): Initial unit index vector \eqn{\theta}. By default, the vector is sampled from the von Mises--Fisher prior.
-#'      \item Link function: \code{link_lengthscale} is initial scalar length-scale parameter. (default: \code{0.1})
-#'      \code{link_amp} is initial scalar amplitude parameter. (default: \code{1})
-#'      \item Error variance (\code{sigma2}): Initial scalar error variance. (default: \code{1})
+#'      \item Link function: \code{link_lengthscale} is initial scalar length-scale parameter (default \code{0.1}).
+#'      \code{link_amp} is initial scalar amplitude parameter (default \code{1}).
+#'      \item Error variance (\code{sigma2}): Initial scalar error variance (default \code{1}).
 #' }
 #'  \strong{Scaling the predictors.} When the scale of predictors are different, the estimated index can be dominated by large scale variables and make the estimation unstable.
 #'  In this case, scaling is recommended. If \code{scale = TRUE, center = TRUE}, it means standardization of the predictors.

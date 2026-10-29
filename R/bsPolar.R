@@ -34,8 +34,8 @@
 #' \strong{Sampling}
 #'  All samplers are automatically assigned by nimble.
 #'
-#' \strong{Prior hyper-parameters}
-#' These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+#' \strong{Prior hyperparameters}
+#' These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 #' \enumerate{
 #' \item Index vector:
 #'     Only shape parameter \code{index_psi_alpha} of \eqn{p-1} dimension vector is needed since rate parameters is computed to satisfy \eqn{\theta_{j, \text{MAP}}}.
@@ -49,7 +49,7 @@
 #'           By default, \code{link_beta_mu} is zero vector, \code{link_beta_Sigma0} is identity matrix, and \code{link_beta_tau} is the number of observations.}
 #'           }
 #'
-#'   \item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+#'   \item Error variance: An Inverse gamma prior is assigned to \eqn{\sigma^2}
 #'         where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
 #'         (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
 #'}

@@ -2,7 +2,7 @@ Type: Package
 Package: BayesSIM
 Title: Integrated Interface of Bayesian Single Index Models using
         'nimble'
-Version: 2.0.0
+Version: 2.0.1
 Authors@R: c(
     person("Seowoo", "Jung", , "jsw1347@ewha.ac.kr", role = c("aut", "cre")),
     person("Eun-kyung", "Lee", , "lee.eunk@ewha.ac.kr", role = "aut")
@@ -30,9 +30,9 @@ Config/testthat/edition: 3
 Encoding: UTF-8
 LazyData: true
 NeedsCompilation: no
-Packaged: 2026-10-14 10:52:06 UTC; Seowoo
+Packaged: 2026-10-29 01:38:00 UTC; user
 Config/roxygen2/version: 8.1.1
 URL: https://github.com/Seowoo-Jung/BayesSIM
 BugReports: https://github.com/Seowoo-Jung/BayesSIM/issues
 Repository: CRAN
-Date/Publication: 2026-10-14 12:32:13 UTC
+Date/Publication: 2026-10-29 03:40:02 UTC

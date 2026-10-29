@@ -18,7 +18,7 @@
 are returned. Default is \code{"latent"}.
 \itemize{
 \item \code{"latent"}: fitted response values \eqn{\hat{y} = E(\mathbf{Y}|\mathbf{X})}.
-\item \code{"linpred"}: linear predictor \eqn{X'\theta}.
+\item \code{"linpred"}: linear predictor \eqn{X\theta}.
 }}
 
 \item{method}{Character string specifying the summary statistic used to

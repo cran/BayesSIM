@@ -105,13 +105,13 @@ Given \eqn{\theta}, \eqn{\sigma^2} is sampled from posterior distribution.
 Given \eqn{\theta, \sigma^2}, \eqn{\beta} is estimated using the penalized least squares estimator rather than sampled from its posterior distribution.
 Further sampling method is described in Antoniadis et al. (2004).
 
-\strong{Prior hyper-parameters}
-These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\strong{Prior hyperparameters}
+These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
-\item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta} (\code{index}).
+\item Index vector: von Mises--Fisher prior for the projection vector \eqn{\theta}.
 \code{index_direction} is a unit direction vector of the von Mises--Fisher distribution.
 By default, the estimated vector from projection pursuit regression is assigned.
-\code{index_dispersion} is the positive concentration parameter. By default, \code{150} is assigned.
+\code{index_dispersion} is the positive concentration parameter (default \code{150}).
 
 \item Link function: B-spline basis and coefficient of B-spline setup.
 \itemize{
@@ -122,7 +122,7 @@ By default, the estimated vector from projection pursuit regression is assigned.
 The actual sampling, however, is performed using the prior specified above, as described in the paper.
 }
 
-\item Error variance (\code{sigma2}): An Inverse gamma prior is assigned to \eqn{\sigma^2}
+\item Error variance: An Inverse gamma prior is assigned to \eqn{\sigma^2}
 where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
 (default \code{sigma2_shape = 0.001, sigma2_rate = 100})
 }
@@ -130,7 +130,7 @@ where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate para
 \strong{Initial values}
 These are the initial values set in the function. You can define new values for each initial value in \link{init_param}.
 \enumerate{
-\item Index vector: Initial unit index vector \eqn{\theta}. By default, the vector is randomly sampled from the von Mises--Fisher prior.
+\item Index vector (\code{index}): Initial unit index vector \eqn{\theta}. By default, the vector is randomly sampled from the von Mises--Fisher prior.
 \item Link function: Initial spline coefficients (\code{link_beta}). By default,
 \eqn{\big(X_{\theta}^\top X_{\theta} + \rho\, \mathrm{I}\big)^{-1} X_{\theta}^\top Y} is computed,
 where \eqn{X_{\theta}} is the B-spline basis design matrix.

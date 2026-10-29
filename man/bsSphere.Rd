@@ -3,7 +3,7 @@
 \name{bsSphere}
 \alias{bsSphere}
 \alias{bsSphere_setup}
-\title{Bayesian Single-Index Regression with B-Spline Link and Half-Unit Sphere Prior}
+\title{Bayesian Single-Index Regression with B-Spline Link and Uniform Prior on Half-Unit Sphere}
 \usage{
 bsSphere(
   formula,
@@ -106,10 +106,10 @@ add/remove predictor \eqn{\nu}, update \eqn{\theta}, add/delete/relocate a knot.
 Metropolis via local rotations in a two‑coordinate subspace. Knot changes use simple proposals with tractable acceptance ratios.
 Further sampling method is described in Wang (2009).
 
-\strong{Prior hyper-parameters}
-These are the prior hyper-parameters set in the function. You can define new values for each parameter in \link{prior_param}.
+\strong{Prior hyperparameters}
+These are the prior hyperparameters set in the function. You can define new values for each parameter in \link{prior_param}.
 \enumerate{
-\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively. (default \code{index_nu_r1 = 1, index_nu_r2 = 1}).
+\item Index vector: \code{index_nu_r1, index_nu_r2} gives the shape and rate parameter of beta-binomial prior, respectively (default \code{index_nu_r1 = 1, index_nu_r2 = 1}).
 \item Link function: B-spline knots, basis and coefficient setup.
 \itemize{
 \item{knots: Free-knot prior for the spline. \code{link_knots_lambda_k} is the Poisson mean for the number of
@@ -117,11 +117,11 @@ interior knot \eqn{k} (default \code{5}). \code{link_knots_maxknots} is the maxi
 If \code{link_knots_maxknots} is \code{NULL}, the number of interior knots is randomly drawn from a Poisson distribution.}
 \item{basis: For the basis of B-spline,  \code{link_basis_degree} is the spline
 degree (default \code{2}).}
-\item{beta: For the coefficient of B-spline,
-By default, \code{link_beta_mu} is a zero vector, \code{link_beta_tau} is set to the sample size,
+\item{beta: For the coefficient of B-spline, multivariate normal prior is assigned with mean (\eqn{\boldsymbol{\mu_\beta}}) \code{link_beta_mu}, covariance (\eqn{\Sigma_0}) \code{link_beta_Sigma0},
+scale parameter (\eqn{\tau}) \code{link_beta_tau}. By default, \code{link_beta_mu} is a zero vector, \code{link_beta_tau} is set to the sample size,
 and \code{link_beta_Sigma0} is the identity matrix of dimension \eqn{1 + k + m},
 where \eqn{k} is the number of interior knots and \eqn{m} is the spline order.}}
-\item Error variance (\code{sigma2}): Inverse gamma prior is assigned to \eqn{\sigma^2}
+\item Error variance: Inverse gamma prior is assigned to \eqn{\sigma^2}
 where \code{sigma2_shape} is shape parameter and \code{sigma2_rate} is rate parameter of inverse gamma distribution.
 Small values for shape and rate parameters yield a weakly-informative prior on \eqn{\sigma^{2}}. (default \code{sigma2_shape = 0.001, sigma2_rate = 0.001})
 }
@@ -134,7 +134,7 @@ These are the initial values set in the function. You can define new values for 
 The vector length must match the number of predictor.
 Ideally, positions where \code{index_nu} has a value of 1 should correspond to nonzero elements in \eqn{\theta}; elements corresponding to \code{index_nu} = 0 will be set to zero.
 \item Link function: \code{link_k} is initial number of interior knots. \code{link_knots} is initial vector of interior knot positions in \eqn{[0, 1]}, automatically scaled to the true boundary.
-Length of this vector should be equal to the initial value of \code{k}.
+Length of this vector should be equal to the initial value of \eqn{k}.
 \code{link_beta} is initial vector of spline coefficients. Length should be equal to the initial number of basis functions with intercept (\eqn{1 + k + m}).
 \item Error variance (\code{sigma2}): Initial scalar error variance. (default \code{0.01})
 }
